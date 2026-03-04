@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, Plus, BarChart2, Droplet, Calculator } from 'lucide-react';
 
+const notifSupported = typeof Notification !== 'undefined';
+
 const ACCENT = '#5856D6';
 const BG = '#F2F2F7';
 const CARD = '#FFFFFF';
@@ -19,7 +21,6 @@ export default function App() {
   const [customAmount, setCustomAmount] = useState('');
   const [nextFeedTime, setNextFeedTime] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
-  const notifSupported = typeof Notification !== 'undefined';
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);

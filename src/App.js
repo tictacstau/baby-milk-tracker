@@ -53,7 +53,7 @@ export default function App() {
   // Save settings
   useEffect(() => {
     localStorage.setItem('settings', JSON.stringify({ unit, babyAge, babyName }));
-  }, [unit, babyAge]);
+  }, [unit, babyAge, babyName]);
 
   // Countdown timer
   useEffect(() => {
@@ -79,7 +79,7 @@ export default function App() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [nextFeedTime]);
+  }, [nextFeedTime, babyName]);
 
   const getRecommendedAmount = () => {
     if (babyAge <= 1) return 60;

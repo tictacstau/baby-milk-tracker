@@ -19,7 +19,8 @@ export default function App() {
   const [customAmount, setCustomAmount] = useState('');
   const [nextFeedTime, setNextFeedTime] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
-  const [notifPermission, setNotifPermission] = useState(Notification.permission);
+  const notifSupported = typeof Notification !== 'undefined';
+  const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
 
@@ -62,7 +63,7 @@ export default function App() {
         const diff = nextFeedTime - new Date();
         if (diff <= 0) {
           setTimeUntilFeed('Feed time!');
-          if (!notificationFired.current && Notification.permission === 'granted') {
+          if (!notificationFired.current && notifSupported && Notification.permission === 'granted') {
             notificationFired.current = true;
             new Notification('Time to feed! 🍼', {
               body: `It's been 3 hours — ${babyName || 'baby'} might be hungry!`,
@@ -94,6 +95,7 @@ export default function App() {
   const convert = (amount) => (unit === 'ml' ? amount : mlToOz(amount));
 
   const requestNotifications = async () => {
+    if (!notifSupported) return;
     if (Notification.permission === 'default') {
       const permission = await Notification.requestPermission();
       setNotifPermission(permission);

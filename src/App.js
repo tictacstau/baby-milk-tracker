@@ -177,7 +177,7 @@ export default function App() {
     <div style={{ padding: '32px 20px 24px' }}>
       {/* Title */}
       <h1 style={{ margin: '0 0 4px', fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
-        {babyName ? `${babyName}'s Milk Tracker` : "Mama-Papa Bear Milk Tracker"}
+        {babyName ? `${babyName}'s Milk Tracker` : "Baby Milk Tracker"}
       </h1>
       <p style={{ margin: '0 0 36px', fontSize: 15, color: TEXT2 }}>You got this, Mama & Papa Bear 💪</p>
 

@@ -404,6 +404,38 @@ export default function App() {
         )}
       </div>
 
+      {/* Wake window status */}
+      {(() => {
+        const status = getWakeStatus();
+        const { min, max } = getRecommendedWakeWindow();
+        return (
+          <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: isBabyAwake ? '#FFF8EC' : '#F0F0FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {isBabyAwake ? <Sun size={18} color={AMBER} /> : <Moon size={18} color={ACCENT} />}
+              </div>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>
+                  {isBabyAwake ? `Awake · ${wakeElapsed || '0m'}` : 'Sleeping'}
+                </div>
+                <div style={{ fontSize: 12, color: TEXT2, marginTop: 2 }}>
+                  {isBabyAwake ? `Window: ${min}–${max} min` : 'Wake window not started'}
+                </div>
+              </div>
+            </div>
+            {status && (
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                background: status.color === GREEN ? '#E8FAF0' : status.color === AMBER ? '#FFF3E0' : '#FFF0EE',
+                color: status.color,
+              }}>
+                {status.label}
+              </span>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Notification status */}
       {notifPermission === 'granted' && (
         <div style={{ background: CARD, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -639,6 +671,38 @@ export default function App() {
         </div>
       </div>
 
+      {/* Sleep stats grid */}
+      {(() => {
+        const todayWW = getTodayWakeWindows();
+        const totalAwakeMs = todayWW.reduce((sum, w) => sum + (new Date(w.end) - new Date(w.start)), 0);
+        const avgAwakeMs = todayWW.length > 0 ? totalAwakeMs / todayWW.length : 0;
+        const { max } = getRecommendedWakeWindow();
+        const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              Sleep
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length}</div>
+                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Wake windows</div>
+              </div>
+              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
+                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Total awake</div>
+              </div>
+              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                <div style={{ fontSize: 22, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+                  {todayWW.length > 0 ? formatDuration(avgAwakeMs) : '—'}
+                </div>
+                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Avg window</div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Today's feed list */}
       {todayFeeds.length > 0 ? (
         <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -669,6 +733,46 @@ export default function App() {
         <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <Droplet size={40} color={BORDER} style={{ marginBottom: 12 }} />
           <p style={{ margin: 0, fontSize: 15, color: TEXT2 }}>No feeds logged today yet.</p>
+        </div>
+      )}
+
+      {/* Today's wake windows list */}
+      {getTodayWakeWindows().length > 0 && (
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            Today's Wake Windows
+          </p>
+          {[...getTodayWakeWindows()].reverse().map((w, idx, arr) => {
+            const duration = new Date(w.end) - new Date(w.start);
+            const { max } = getRecommendedWakeWindow();
+            const onTrack = duration / 60000 <= max;
+            return (
+              <div key={idx} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '11px 0',
+                borderBottom: idx < arr.length - 1 ? `1px solid ${BORDER}` : 'none',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <Sun size={16} color={ACCENT} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
+                      {new Date(w.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(w.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                    </div>
+                    <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{formatDuration(duration)}</div>
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                  background: onTrack ? '#E8FAF0' : '#FFF0EE',
+                  color: onTrack ? GREEN : RED,
+                }}>
+                  {onTrack ? 'On track' : 'Over window'}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 

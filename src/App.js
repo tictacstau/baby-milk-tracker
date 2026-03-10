@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Plus, BarChart2, Droplet, Calculator } from 'lucide-react';
+import { Home, Plus, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
 
 const notifSupported = typeof Notification !== 'undefined';
 
@@ -11,6 +11,7 @@ const TEXT2 = '#8E8E93';
 const BORDER = '#E5E5EA';
 const GREEN = '#34C759';
 const RED = '#FF3B30';
+const AMBER = '#FF9500';
 
 export default function App() {
   const [unit, setUnit] = useState('ml');
@@ -21,6 +22,11 @@ export default function App() {
   const [customAmount, setCustomAmount] = useState('');
   const [nextFeedTime, setNextFeedTime] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
+  const [expandedDays, setExpandedDays] = useState({});
+  const [isBabyAwake, setIsBabyAwake] = useState(false);
+  const [wakeStartTime, setWakeStartTime] = useState(null);
+  const [wakeWindows, setWakeWindows] = useState([]);
+  const [wakeElapsed, setWakeElapsed] = useState('');
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
@@ -46,6 +52,14 @@ export default function App() {
         setUnit(parsed.unit || 'ml');
         setBabyAge(parsed.babyAge || 2);
         setBabyName(parsed.babyName || '');
+      }
+      const wakeData = localStorage.getItem('wakeWindows');
+      const wakeState = localStorage.getItem('wakeState');
+      if (wakeData) setWakeWindows(JSON.parse(wakeData));
+      if (wakeState) {
+        const { awake, startTime } = JSON.parse(wakeState);
+        setIsBabyAwake(awake);
+        setWakeStartTime(startTime ? new Date(startTime) : null);
       }
     } catch (e) {
       console.log('Starting fresh');
@@ -82,6 +96,69 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, [nextFeedTime, babyName]);
+
+  // Wake window live timer
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (isBabyAwake && wakeStartTime) {
+        const diff = Date.now() - new Date(wakeStartTime).getTime();
+        const hours = Math.floor(diff / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        setWakeElapsed(hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`);
+      } else {
+        setWakeElapsed('');
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isBabyAwake, wakeStartTime]);
+
+  const getRecommendedWakeWindow = () => {
+    if (babyAge <= 4) return { min: 45, max: 60 };
+    if (babyAge <= 8) return { min: 60, max: 90 };
+    if (babyAge <= 16) return { min: 75, max: 120 };
+    if (babyAge <= 24) return { min: 90, max: 180 };
+    return { min: 120, max: 180 };
+  };
+
+  const getWakeStatus = () => {
+    if (!isBabyAwake || !wakeStartTime) return null;
+    const elapsedMin = (Date.now() - new Date(wakeStartTime).getTime()) / 60000;
+    const { min, max } = getRecommendedWakeWindow();
+    if (elapsedMin < min * 0.75) return { color: GREEN, label: 'Within window' };
+    if (elapsedMin < max) return { color: AMBER, label: 'Nap soon' };
+    return { color: RED, label: 'Nap overdue' };
+  };
+
+  const toggleWakeState = () => {
+    if (!isBabyAwake) {
+      const now = new Date();
+      setIsBabyAwake(true);
+      setWakeStartTime(now);
+      localStorage.setItem('wakeState', JSON.stringify({ awake: true, startTime: now.toISOString() }));
+    } else {
+      const ended = new Date();
+      const entry = { start: wakeStartTime.toISOString(), end: ended.toISOString() };
+      const updated = [...wakeWindows, entry];
+      setWakeWindows(updated);
+      setIsBabyAwake(false);
+      setWakeStartTime(null);
+      localStorage.setItem('wakeWindows', JSON.stringify(updated));
+      localStorage.setItem('wakeState', JSON.stringify({ awake: false, startTime: null }));
+    }
+  };
+
+  const getTodayWakeWindows = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return wakeWindows.filter((w) => new Date(w.start) >= today);
+  };
+
+  const formatDuration = (ms) => {
+    const totalMin = Math.floor(ms / 60000);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  };
 
   const getRecommendedAmount = () => {
     if (babyAge <= 1) return 60;
@@ -166,10 +243,124 @@ export default function App() {
   const progressOffset = PCIRC * (1 - progressFrac);
   const pSize = (PR + 10) * 2;
 
+  const getFeedsByDay = () => {
+    const groups = {};
+    feeds.forEach((feed) => {
+      const date = new Date(feed.timestamp);
+      const key = date.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(feed);
+    });
+    return Object.entries(groups).sort((a, b) => new Date(b[0]) - new Date(a[0]));
+  };
+
+  const toggleDay = (key) => setExpandedDays((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // ── Sleep Tab ─────────────────────────────────────────────
+  const SleepTab = () => {
+    const status = getWakeStatus();
+    const { min, max } = getRecommendedWakeWindow();
+    const todayWakeWindows = getTodayWakeWindows();
+
+    return (
+      <div style={{ padding: '32px 20px 24px' }}>
+        <h2 style={{ margin: '0 0 4px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Wake Windows</h2>
+        <p style={{ margin: '0 0 24px', fontSize: 15, color: TEXT2 }}>
+          Recommended: {min}–{max} min for a {babyAge}-week-old
+        </p>
+
+        {/* Toggle button */}
+        <button onClick={toggleWakeState} style={{
+          width: '100%', border: 'none', borderRadius: 18, padding: '22px 20px',
+          cursor: 'pointer', marginBottom: 16,
+          background: isBabyAwake ? '#FFF8EC' : ACCENT,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
+          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+          transition: 'background 0.2s',
+        }}>
+          {isBabyAwake
+            ? <Moon size={22} color={AMBER} />
+            : <Sun size={22} color="white" />}
+          <span style={{ fontSize: 17, fontWeight: 700, color: isBabyAwake ? AMBER : 'white' }}>
+            {isBabyAwake ? 'Baby fell asleep' : 'Baby woke up'}
+          </span>
+        </button>
+
+        {/* Live timer */}
+        {isBabyAwake && wakeStartTime && (
+          <div style={{ background: CARD, borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: 48, fontWeight: 700, letterSpacing: -1, color: status?.color || TEXT, lineHeight: 1 }}>
+              {wakeElapsed || '0m'}
+            </div>
+            <div style={{ fontSize: 13, color: TEXT2, marginTop: 6 }}>awake since {new Date(wakeStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
+            {status && (
+              <div style={{
+                display: 'inline-block', marginTop: 12,
+                padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+                background: status.color === GREEN ? '#E8FAF0' : status.color === AMBER ? '#FFF3E0' : '#FFF0EE',
+                color: status.color,
+              }}>
+                {status.label}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Today's wake windows */}
+        {todayWakeWindows.length > 0 && (
+          <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+              Today's Wake Windows
+            </p>
+            {[...todayWakeWindows].reverse().map((w, idx) => {
+              const duration = new Date(w.end) - new Date(w.start);
+              const { max } = getRecommendedWakeWindow();
+              const withinGoal = duration / 60000 <= max;
+              return (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '11px 0',
+                  borderBottom: idx < todayWakeWindows.length - 1 ? `1px solid ${BORDER}` : 'none',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <Sun size={15} color={ACCENT} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
+                        {new Date(w.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(w.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                      <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{formatDuration(duration)}</div>
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                    background: withinGoal ? '#E8FAF0' : '#FFF0EE',
+                    color: withinGoal ? GREEN : RED,
+                  }}>
+                    {withinGoal ? 'On track' : 'Over window'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {!isBabyAwake && todayWakeWindows.length === 0 && (
+          <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <Moon size={40} color={BORDER} style={{ marginBottom: 12 }} />
+            <p style={{ margin: 0, fontSize: 15, color: TEXT2 }}>Tap the button when baby wakes up.</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
     { id: 'log', label: 'Log', Icon: Plus },
     { id: 'stats', label: 'Stats', Icon: BarChart2 },
+    { id: 'sleep', label: 'Sleep', Icon: Moon },
   ];
 
   // ── Home Tab ─────────────────────────────────────────────
@@ -448,11 +639,11 @@ export default function App() {
         </div>
       </div>
 
-      {/* Feed history */}
+      {/* Today's feed list */}
       {todayFeeds.length > 0 ? (
-        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-            Feed History
+            Today's Feeds
           </p>
           {[...todayFeeds].reverse().map((feed, idx) => (
             <div key={idx} style={{
@@ -475,10 +666,76 @@ export default function App() {
           ))}
         </div>
       ) : (
-        <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <Droplet size={40} color={BORDER} style={{ marginBottom: 12 }} />
           <p style={{ margin: 0, fontSize: 15, color: TEXT2 }}>No feeds logged today yet.</p>
         </div>
+      )}
+
+      {/* Past days */}
+      {getFeedsByDay().filter(([dateKey]) => dateKey !== new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })).length > 0 && (
+        <>
+          <p style={{ margin: '8px 0 12px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
+            Previous Days
+          </p>
+          {getFeedsByDay()
+            .filter(([dateKey]) => dateKey !== new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }))
+            .map(([dateKey, dayFeeds]) => {
+              const label = new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+              const total = dayFeeds.reduce((sum, f) => sum + f.amount, 0);
+              const goalMet = total >= recommendedDaily;
+              const expanded = expandedDays[dateKey];
+              return (
+                <div key={dateKey} style={{ background: CARD, borderRadius: 16, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
+                  <button onClick={() => toggleDay(dateKey)} style={{
+                    width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '16px 20px',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  }}>
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>{label}</div>
+                      <div style={{ fontSize: 13, color: TEXT2, marginTop: 2 }}>
+                        {dayFeeds.length} feed{dayFeeds.length !== 1 ? 's' : ''} · {convert(total)}{unit} total
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4,
+                        borderRadius: 20,
+                        background: goalMet ? '#E8FAF0' : '#FFF0EE',
+                        color: goalMet ? GREEN : RED,
+                      }}>
+                        {goalMet ? 'Goal met' : 'Goal not met'}
+                      </span>
+                      {expanded ? <ChevronUp size={18} color={TEXT2} /> : <ChevronDown size={18} color={TEXT2} />}
+                    </div>
+                  </button>
+                  {expanded && (
+                    <div style={{ borderTop: `1px solid ${BORDER}`, padding: '8px 20px 12px' }}>
+                      {[...dayFeeds].reverse().map((feed, idx) => (
+                        <div key={idx} style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '10px 0',
+                          borderBottom: idx < dayFeeds.length - 1 ? `1px solid ${BORDER}` : 'none',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <div style={{ width: 34, height: 34, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Droplet size={15} color={ACCENT} />
+                            </div>
+                            <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
+                              {new Date(feed.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: 16, fontWeight: 700, color: ACCENT }}>
+                            {convert(feed.amount)}{unit}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+        </>
       )}
     </div>
   );
@@ -501,6 +758,7 @@ export default function App() {
         {activeTab === 'home' && HomeTab()}
         {activeTab === 'log' && LogTab()}
         {activeTab === 'stats' && StatsTab()}
+        {activeTab === 'sleep' && <SleepTab />}
       </div>
 
       {/* Bottom tab bar */}

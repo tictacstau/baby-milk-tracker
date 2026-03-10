@@ -23,6 +23,7 @@ export default function App() {
   const [nextFeedTime, setNextFeedTime] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
   const [expandedDays, setExpandedDays] = useState({});
+  const [showPreviousDays, setShowPreviousDays] = useState(false);
   const [isBabyAwake, setIsBabyAwake] = useState(false);
   const [wakeStartTime, setWakeStartTime] = useState(null);
   const [wakeWindows, setWakeWindows] = useState([]);
@@ -455,24 +456,61 @@ export default function App() {
         <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
           Today
         </p>
-        <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+
+        {/* Feed row */}
+        <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Feeds</p>
+        <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 18 }}>
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 30, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayFeeds.length}</div>
-            <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Feeds</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayFeeds.length}</div>
+            <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Count</div>
           </div>
           <div style={{ width: 1, background: BORDER }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 30, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{convert(todayTotal)}{unit}</div>
+            <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{convert(todayTotal)}{unit}</div>
             <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
           </div>
           <div style={{ width: 1, background: BORDER }} />
           <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 30, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT, letterSpacing: -0.5 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT, letterSpacing: -0.5 }}>
               {Math.round(progressFrac * 100)}%
             </div>
             <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Goal</div>
           </div>
         </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: BORDER, marginBottom: 14 }} />
+
+        {/* Sleep row */}
+        {(() => {
+          const todayWW = getTodayWakeWindows();
+          const totalAwakeMs = todayWW.reduce((sum, w) => sum + (new Date(w.end) - new Date(w.start)), 0);
+          const { max } = getRecommendedWakeWindow();
+          const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
+          return (
+            <>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Sleep</p>
+              <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Windows</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Awake</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5 }}>
+                    {todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—'}
+                  </div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>On track</div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );
@@ -618,12 +656,22 @@ export default function App() {
   );
 
   // ── Stats Tab ────────────────────────────────────────────
-  const StatsTab = () => (
+  const StatsTab = () => {
+    const todayWW = getTodayWakeWindows();
+    const totalAwakeMs = todayWW.reduce((sum, w) => sum + (new Date(w.end) - new Date(w.start)), 0);
+    const avgAwakeMs = todayWW.length > 0 ? totalAwakeMs / todayWW.length : 0;
+    const { max } = getRecommendedWakeWindow();
+    const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
+
+    return (
     <div style={{ padding: '32px 20px 24px' }}>
       <h2 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
 
+      {/* ── Feeds section ── */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Feeds</p>
+
       {/* Progress ring card */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 24 }}>
+      <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 24 }}>
         <div style={{ position: 'relative', width: pSize, height: pSize, flexShrink: 0 }}>
           <svg width={pSize} height={pSize} style={{ transform: 'rotate(-90deg)' }}>
             <circle cx={pSize / 2} cy={pSize / 2} r={PR} fill="none" stroke={BORDER} strokeWidth={10} />
@@ -655,8 +703,8 @@ export default function App() {
         </div>
       </div>
 
-      {/* Stats grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
+      {/* Feed stats grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
         <div style={{ background: CARD, borderRadius: 14, padding: '18px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div style={{ fontSize: 24, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
             {todayFeeds.length > 0 ? `${convert(Math.round(todayTotal / todayFeeds.length))}${unit}` : '—'}
@@ -671,44 +719,9 @@ export default function App() {
         </div>
       </div>
 
-      {/* Sleep stats grid */}
-      {(() => {
-        const todayWW = getTodayWakeWindows();
-        const totalAwakeMs = todayWW.reduce((sum, w) => sum + (new Date(w.end) - new Date(w.start)), 0);
-        const avgAwakeMs = todayWW.length > 0 ? totalAwakeMs / todayWW.length : 0;
-        const { max } = getRecommendedWakeWindow();
-        const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
-        return (
-          <div style={{ marginBottom: 14 }}>
-            <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Sleep
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length}</div>
-                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Wake windows</div>
-              </div>
-              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
-                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Total awake</div>
-              </div>
-              <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-                <div style={{ fontSize: 22, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
-                  {todayWW.length > 0 ? formatDuration(avgAwakeMs) : '—'}
-                </div>
-                <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Avg window</div>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Today's feed list */}
       {todayFeeds.length > 0 ? (
-        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-            Today's Feeds
-          </p>
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           {[...todayFeeds].reverse().map((feed, idx) => (
             <div key={idx} style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -730,21 +743,37 @@ export default function App() {
           ))}
         </div>
       ) : (
-        <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <Droplet size={40} color={BORDER} style={{ marginBottom: 12 }} />
-          <p style={{ margin: 0, fontSize: 15, color: TEXT2 }}>No feeds logged today yet.</p>
+        <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No feeds logged today yet.</p>
         </div>
       )}
 
+      {/* ── Sleep section ── */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Sleep</p>
+
+      {/* Sleep stats grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length}</div>
+          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Wake windows</div>
+        </div>
+        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
+          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Total awake</div>
+        </div>
+        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 22, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+            {todayWW.length > 0 ? formatDuration(avgAwakeMs) : '—'}
+          </div>
+          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Avg window</div>
+        </div>
+      </div>
+
       {/* Today's wake windows list */}
-      {getTodayWakeWindows().length > 0 && (
-        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-            Today's Wake Windows
-          </p>
-          {[...getTodayWakeWindows()].reverse().map((w, idx, arr) => {
+      {todayWW.length > 0 ? (
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          {[...todayWW].reverse().map((w, idx, arr) => {
             const duration = new Date(w.end) - new Date(w.start);
-            const { max } = getRecommendedWakeWindow();
             const onTrack = duration / 60000 <= max;
             return (
               <div key={idx} style={{
@@ -774,22 +803,57 @@ export default function App() {
             );
           })}
         </div>
+      ) : (
+        <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No wake windows logged today yet.</p>
+        </div>
       )}
 
       {/* Past days */}
-      {getFeedsByDay().filter(([dateKey]) => dateKey !== new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' })).length > 0 && (
-        <>
-          <p style={{ margin: '8px 0 12px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-            Previous Days
-          </p>
-          {getFeedsByDay()
-            .filter(([dateKey]) => dateKey !== new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }))
-            .map(([dateKey, dayFeeds]) => {
+      {(() => {
+        const todayKey = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+        // Group wake windows by day
+        const wwByDay = {};
+        wakeWindows.forEach((w) => {
+          const key = new Date(w.start).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!wwByDay[key]) wwByDay[key] = [];
+          wwByDay[key].push(w);
+        });
+
+        // Merge all past dates from feeds and wake windows
+        const feedDays = getFeedsByDay().map(([k]) => k);
+        const allPastKeys = [...new Set([...feedDays, ...Object.keys(wwByDay)])]
+          .filter(k => k !== todayKey)
+          .sort((a, b) => new Date(b) - new Date(a));
+
+        if (allPastKeys.length === 0) return null;
+
+        return (
+          <>
+            <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: showPreviousDays ? 12 : 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              <button onClick={() => setShowPreviousDays(p => !p)} style={{
+                width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <BarChart2 size={20} color={ACCENT} />
+                  <span style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>Previous Days</span>
+                </div>
+                <span style={{ fontSize: 22, color: TEXT2, lineHeight: 1, fontWeight: 300 }}>
+                  {showPreviousDays ? '−' : '+'}
+                </span>
+              </button>
+            </div>
+            {showPreviousDays && allPastKeys.map((dateKey) => {
+              const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);
+              const dayWW = wwByDay[dateKey] || [];
               const label = new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
               const total = dayFeeds.reduce((sum, f) => sum + f.amount, 0);
-              const goalMet = total >= recommendedDaily;
+              const goalMet = dayFeeds.length > 0 && total >= recommendedDaily;
               const goalPct = Math.round((total / recommendedDaily) * 100);
               const expanded = expandedDays[dateKey];
+
               return (
                 <div key={dateKey} style={{ background: CARD, borderRadius: 16, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
                   <button onClick={() => toggleDay(dateKey)} style={{
@@ -799,51 +863,98 @@ export default function App() {
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>{label}</div>
                       <div style={{ fontSize: 13, color: TEXT2, marginTop: 2 }}>
-                        {dayFeeds.length} feed{dayFeeds.length !== 1 ? 's' : ''} · {convert(total)}{unit} total
+                        {dayFeeds.length} feed{dayFeeds.length !== 1 ? 's' : ''} · {dayWW.length} wake window{dayWW.length !== 1 ? 's' : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{
-                        fontSize: 11, fontWeight: 700, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4,
-                        borderRadius: 20,
-                        background: goalMet ? '#E8FAF0' : '#FFF0EE',
-                        color: goalMet ? GREEN : RED,
-                      }}>
-                        {goalMet ? 'Goal met' : `${goalPct}% of goal`}
-                      </span>
+                      {dayFeeds.length > 0 && (
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4,
+                          borderRadius: 20,
+                          background: goalMet ? '#E8FAF0' : '#FFF0EE',
+                          color: goalMet ? GREEN : RED,
+                        }}>
+                          {goalMet ? 'Goal met' : `${goalPct}% of goal`}
+                        </span>
+                      )}
                       {expanded ? <ChevronUp size={18} color={TEXT2} /> : <ChevronDown size={18} color={TEXT2} />}
                     </div>
                   </button>
+
                   {expanded && (
-                    <div style={{ borderTop: `1px solid ${BORDER}`, padding: '8px 20px 12px' }}>
-                      {[...dayFeeds].reverse().map((feed, idx) => (
-                        <div key={idx} style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '10px 0',
-                          borderBottom: idx < dayFeeds.length - 1 ? `1px solid ${BORDER}` : 'none',
-                        }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{ width: 34, height: 34, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                              <Droplet size={15} color={ACCENT} />
+                    <div style={{ borderTop: `1px solid ${BORDER}`, padding: '12px 20px' }}>
+
+                      {/* Feeds sub-section */}
+                      {dayFeeds.length > 0 && (
+                        <>
+                          <p style={{ margin: '0 0 8px', fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Feeds</p>
+                          {[...dayFeeds].reverse().map((feed, idx) => (
+                            <div key={idx} style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              padding: '9px 0',
+                              borderBottom: idx < dayFeeds.length - 1 ? `1px solid ${BORDER}` : 'none',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Droplet size={13} color={ACCENT} />
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
+                                  {new Date(feed.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: 15, fontWeight: 700, color: ACCENT }}>{convert(feed.amount)}{unit}</span>
                             </div>
-                            <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
-                              {new Date(feed.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <span style={{ fontSize: 16, fontWeight: 700, color: ACCENT }}>
-                            {convert(feed.amount)}{unit}
-                          </span>
-                        </div>
-                      ))}
+                          ))}
+                        </>
+                      )}
+
+                      {/* Wake windows sub-section */}
+                      {dayWW.length > 0 && (
+                        <>
+                          <p style={{ margin: `${dayFeeds.length > 0 ? '14px' : '0'} 0 8px`, fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Wake Windows</p>
+                          {[...dayWW].reverse().map((w, idx) => {
+                            const duration = new Date(w.end) - new Date(w.start);
+                            const onTrack = duration / 60000 <= max;
+                            return (
+                              <div key={idx} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                padding: '9px 0',
+                                borderBottom: idx < dayWW.length - 1 ? `1px solid ${BORDER}` : 'none',
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                  <div style={{ width: 30, height: 30, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <Sun size={13} color={ACCENT} />
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
+                                      {new Date(w.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(w.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: TEXT2 }}>{formatDuration(duration)}</div>
+                                  </div>
+                                </div>
+                                <span style={{
+                                  fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                                  background: onTrack ? '#E8FAF0' : '#FFF0EE',
+                                  color: onTrack ? GREEN : RED,
+                                }}>
+                                  {onTrack ? 'On track' : 'Over window'}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
-        </>
-      )}
+          </>
+        );
+      })()}
     </div>
-  );
+    );
+  };
 
   return (
     <div style={{

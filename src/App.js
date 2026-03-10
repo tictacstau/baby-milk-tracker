@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Plus, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
 
 const notifSupported = typeof Notification !== 'undefined';
 
@@ -358,9 +358,9 @@ export default function App() {
 
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
-    { id: 'log', label: 'Log', Icon: Plus },
-    { id: 'stats', label: 'Stats', Icon: BarChart2 },
+    { id: 'log', label: 'Feed', Icon: Milk },
     { id: 'sleep', label: 'Sleep', Icon: Moon },
+    { id: 'stats', label: 'Stats', Icon: BarChart2 },
   ];
 
   // ── Home Tab ─────────────────────────────────────────────
@@ -368,7 +368,7 @@ export default function App() {
     <div style={{ padding: '32px 20px 24px' }}>
       {/* Title */}
       <h1 style={{ margin: '0 0 4px', fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
-        {babyName ? `${babyName}'s Milk Tracker` : "Baby Milk Tracker"}
+        {babyName ? `${babyName}'s Tracker` : "babies.fit"}
       </h1>
       <p style={{ margin: '0 0 36px', fontSize: 15, color: TEXT2 }}>You got this, Mama & Papa Bear 💪</p>
 
@@ -684,6 +684,7 @@ export default function App() {
               const label = new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
               const total = dayFeeds.reduce((sum, f) => sum + f.amount, 0);
               const goalMet = total >= recommendedDaily;
+              const goalPct = Math.round((total / recommendedDaily) * 100);
               const expanded = expandedDays[dateKey];
               return (
                 <div key={dateKey} style={{ background: CARD, borderRadius: 16, marginBottom: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
@@ -704,7 +705,7 @@ export default function App() {
                         background: goalMet ? '#E8FAF0' : '#FFF0EE',
                         color: goalMet ? GREEN : RED,
                       }}>
-                        {goalMet ? 'Goal met' : 'Goal not met'}
+                        {goalMet ? 'Goal met' : `${goalPct}% of goal`}
                       </span>
                       {expanded ? <ChevronUp size={18} color={TEXT2} /> : <ChevronDown size={18} color={TEXT2} />}
                     </div>

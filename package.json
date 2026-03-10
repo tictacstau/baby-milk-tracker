@@ -1,7 +1,7 @@
 {
-  "name": "dads-milk-tracker",
+  "name": "babies-fit",
   "version": "1.0.0",
-  "description": "A simple milk tracking app for new dads",
+  "description": "A baby tracking app for parents — feeds, wake windows and more",
   "private": true,
   "dependencies": {
     "react": "^18.2.0",

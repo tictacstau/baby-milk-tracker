@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity } from 'lucide-react';
 
 const notifSupported = typeof Notification !== 'undefined';
 
@@ -31,6 +31,10 @@ export default function App() {
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
+  const [diapers, setDiapers] = useState([]);
+  const [pumps, setPumps] = useState([]);
+  const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
+  const [pumpAmount, setPumpAmount] = useState('');
 
 
   // Load from localStorage
@@ -54,6 +58,10 @@ export default function App() {
         setBabyAge(parsed.babyAge || 2);
         setBabyName(parsed.babyName || '');
       }
+      const diapersData = localStorage.getItem('diapers');
+      const pumpsData = localStorage.getItem('pumps');
+      if (diapersData) setDiapers(JSON.parse(diapersData));
+      if (pumpsData) setPumps(JSON.parse(pumpsData));
       const wakeData = localStorage.getItem('wakeWindows');
       const wakeState = localStorage.getItem('wakeState');
       if (wakeData) setWakeWindows(JSON.parse(wakeData));
@@ -203,6 +211,35 @@ export default function App() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     return feeds.filter((f) => new Date(f.timestamp) >= today);
+  };
+
+  const getTodayDiapers = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return diapers.filter((d) => new Date(d.timestamp) >= today);
+  };
+
+  const getTodayPumps = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return pumps.filter((p) => new Date(p.timestamp) >= today);
+  };
+
+  const logDiaper = (type) => {
+    const entry = { timestamp: new Date().toISOString(), type };
+    const updated = [...diapers, entry];
+    setDiapers(updated);
+    localStorage.setItem('diapers', JSON.stringify(updated));
+    setQuickLogModal(null);
+  };
+
+  const logPump = (amount) => {
+    const entry = { timestamp: new Date().toISOString(), amount: unit === 'oz' ? ozToMl(amount) : amount };
+    const updated = [...pumps, entry];
+    setPumps(updated);
+    localStorage.setItem('pumps', JSON.stringify(updated));
+    setPumpAmount('');
+    setQuickLogModal(null);
   };
 
   const todayFeeds = getTodayFeeds();
@@ -405,6 +442,26 @@ export default function App() {
         )}
       </div>
 
+      {/* Quick Log Strip */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
+        {[
+          { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: '#F0F0FF' },
+          { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },
+          { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: '#E8FAF0' },
+        ].map(({ id, label, Icon, color, bg }) => (
+          <button key={id} onClick={() => setQuickLogModal(id)} style={{
+            background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
+            cursor: 'pointer', display: 'flex', flexDirection: 'column',
+            alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+          }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Icon size={20} color={color} />
+            </div>
+            <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>Log {label}</span>
+          </button>
+        ))}
+      </div>
+
       {/* Wake window status */}
       {(() => {
         const status = getWakeStatus();
@@ -506,6 +563,62 @@ export default function App() {
                     {todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—'}
                   </div>
                   <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>On track</div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Divider */}
+        <div style={{ height: 1, background: BORDER, margin: '14px 0' }} />
+
+        {/* Diaper row */}
+        {(() => {
+          const td = getTodayDiapers();
+          const wetCount = td.filter(d => d.type === 'wet' || d.type === 'both').length;
+          const dirtyCount = td.filter(d => d.type === 'dirty' || d.type === 'both').length;
+          return (
+            <>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Diapers</p>
+              <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{td.length}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{td.length > 0 ? wetCount : '—'}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Wet</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{td.length > 0 ? dirtyCount : '—'}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Dirty</div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
+
+        {/* Divider */}
+        <div style={{ height: 1, background: BORDER, margin: '14px 0' }} />
+
+        {/* Pump row */}
+        {(() => {
+          const tp = getTodayPumps();
+          const pumpTotal = tp.reduce((sum, p) => sum + p.amount, 0);
+          return (
+            <>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Pumping</p>
+              <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{tp.length}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Sessions</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{tp.length > 0 ? `${convert(pumpTotal)}${unit}` : '—'}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
                 </div>
               </div>
             </>
@@ -662,6 +775,12 @@ export default function App() {
     const avgAwakeMs = todayWW.length > 0 ? totalAwakeMs / todayWW.length : 0;
     const { max } = getRecommendedWakeWindow();
     const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
+    const todayD = getTodayDiapers();
+    const wetCount = todayD.filter(d => d.type === 'wet' || d.type === 'both').length;
+    const dirtyCount = todayD.filter(d => d.type === 'dirty' || d.type === 'both').length;
+    const todayP = getTodayPumps();
+    const pumpTotal = todayP.reduce((sum, p) => sum + p.amount, 0);
+    const avgPump = todayP.length > 0 ? Math.round(pumpTotal / todayP.length) : 0;
 
     return (
     <div style={{ padding: '32px 20px 24px' }}>
@@ -809,6 +928,88 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Diapers section ── */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Diapers</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        {[
+          { value: todayD.length || '—', label: 'Total' },
+          { value: todayD.length > 0 ? wetCount : '—', label: 'Wet' },
+          { value: todayD.length > 0 ? dirtyCount : '—', label: 'Dirty' },
+        ].map(({ value, label }) => (
+          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+            <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {todayD.length > 0 ? (
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          {[...todayD].reverse().map((d, idx) => (
+            <div key={idx} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 0', borderBottom: idx < todayD.length - 1 ? `1px solid ${BORDER}` : 'none',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FFF3E0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Wind size={16} color={AMBER} />
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
+                  {new Date(d.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </div>
+              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No diapers logged today yet.</p>
+        </div>
+      )}
+
+      {/* ── Pumping section ── */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Pumping</p>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+        {[
+          { value: todayP.length || '—', label: 'Sessions' },
+          { value: todayP.length > 0 ? `${convert(pumpTotal)}${unit}` : '—', label: 'Total' },
+          { value: todayP.length > 0 ? `${convert(avgPump)}${unit}` : '—', label: 'Avg' },
+        ].map(({ value, label }) => (
+          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+            <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
+          </div>
+        ))}
+      </div>
+
+      {todayP.length > 0 ? (
+        <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          {[...todayP].reverse().map((p, idx) => (
+            <div key={idx} style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '12px 0', borderBottom: idx < todayP.length - 1 ? `1px solid ${BORDER}` : 'none',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E8FAF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Activity size={16} color={GREEN} />
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
+                  {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                </span>
+              </div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No pumping sessions logged today yet.</p>
+        </div>
+      )}
+
       {/* Past days */}
       {(() => {
         const todayKey = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
@@ -821,9 +1022,25 @@ export default function App() {
           wwByDay[key].push(w);
         });
 
-        // Merge all past dates from feeds and wake windows
+        // Group diapers by day
+        const dByDay = {};
+        diapers.forEach((d) => {
+          const key = new Date(d.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!dByDay[key]) dByDay[key] = [];
+          dByDay[key].push(d);
+        });
+
+        // Group pumps by day
+        const pByDay = {};
+        pumps.forEach((p) => {
+          const key = new Date(p.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!pByDay[key]) pByDay[key] = [];
+          pByDay[key].push(p);
+        });
+
+        // Merge all past dates
         const feedDays = getFeedsByDay().map(([k]) => k);
-        const allPastKeys = [...new Set([...feedDays, ...Object.keys(wwByDay)])]
+        const allPastKeys = [...new Set([...feedDays, ...Object.keys(wwByDay), ...Object.keys(dByDay), ...Object.keys(pByDay)])]
           .filter(k => k !== todayKey)
           .sort((a, b) => new Date(b) - new Date(a));
 
@@ -848,6 +1065,8 @@ export default function App() {
             {showPreviousDays && allPastKeys.map((dateKey) => {
               const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);
               const dayWW = wwByDay[dateKey] || [];
+              const dayD = dByDay[dateKey] || [];
+              const dayP = pByDay[dateKey] || [];
               const label = new Date(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
               const total = dayFeeds.reduce((sum, f) => sum + f.amount, 0);
               const goalMet = dayFeeds.length > 0 && total >= recommendedDaily;
@@ -863,7 +1082,10 @@ export default function App() {
                     <div style={{ textAlign: 'left' }}>
                       <div style={{ fontSize: 16, fontWeight: 700, color: TEXT }}>{label}</div>
                       <div style={{ fontSize: 13, color: TEXT2, marginTop: 2 }}>
-                        {dayFeeds.length} feed{dayFeeds.length !== 1 ? 's' : ''} · {dayWW.length} wake window{dayWW.length !== 1 ? 's' : ''}
+                        {dayFeeds.length} feed{dayFeeds.length !== 1 ? 's' : ''}
+                        {dayWW.length > 0 ? ` · ${dayWW.length} wake window${dayWW.length !== 1 ? 's' : ''}` : ''}
+                        {dayD.length > 0 ? ` · ${dayD.length} diaper${dayD.length !== 1 ? 's' : ''}` : ''}
+                        {dayP.length > 0 ? ` · ${dayP.length} pump${dayP.length !== 1 ? 's' : ''}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -944,6 +1166,54 @@ export default function App() {
                           })}
                         </>
                       )}
+
+                      {/* Diapers sub-section */}
+                      {dayD.length > 0 && (
+                        <>
+                          <p style={{ margin: `${dayFeeds.length > 0 || dayWW.length > 0 ? '14px' : '0'} 0 8px`, fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Diapers</p>
+                          {[...dayD].reverse().map((d, idx) => (
+                            <div key={idx} style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              padding: '9px 0',
+                              borderBottom: idx < dayD.length - 1 ? `1px solid ${BORDER}` : 'none',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#FFF3E0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Wind size={13} color={AMBER} />
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
+                                  {new Date(d.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* Pumps sub-section */}
+                      {dayP.length > 0 && (
+                        <>
+                          <p style={{ margin: `${dayFeeds.length > 0 || dayWW.length > 0 || dayD.length > 0 ? '14px' : '0'} 0 8px`, fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Pumping</p>
+                          {[...dayP].reverse().map((p, idx) => (
+                            <div key={idx} style={{
+                              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                              padding: '9px 0',
+                              borderBottom: idx < dayP.length - 1 ? `1px solid ${BORDER}` : 'none',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E8FAF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  <Activity size={13} color={GREEN} />
+                                </div>
+                                <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
+                                  {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <span style={{ fontSize: 15, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+                            </div>
+                          ))}
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
@@ -976,6 +1246,109 @@ export default function App() {
         {activeTab === 'stats' && StatsTab()}
         {activeTab === 'sleep' && <SleepTab />}
       </div>
+
+      {/* Quick Log Bottom Sheet */}
+      {quickLogModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+          onClick={() => setQuickLogModal(null)}
+        >
+          <div
+            style={{ background: CARD, borderRadius: '20px 20px 0 0', padding: '16px 20px 40px', maxWidth: 430, width: '100%', margin: '0 auto' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: '0 auto 20px' }} />
+
+            {quickLogModal === 'feed' && (
+              <>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Feed</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
+                  {quickLogAmounts.map((amount, i) => (
+                    <button key={amount} onClick={() => { logFeed(amount); setQuickLogModal(null); }} style={{
+                      padding: '18px 8px', cursor: 'pointer',
+                      border: i === 1 ? 'none' : `1.5px solid ${BORDER}`,
+                      borderRadius: 14, fontSize: 17, fontWeight: 700,
+                      background: i === 1 ? ACCENT : CARD,
+                      color: i === 1 ? 'white' : TEXT,
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
+                    }}>
+                      {convert(amount)}{unit}
+                      <span style={{ fontSize: 11, fontWeight: 500, color: i === 1 ? 'rgba(255,255,255,0.75)' : TEXT2 }}>
+                        {i === 0 ? 'Less' : i === 1 ? 'Suggested' : 'More'}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    placeholder={`Custom (${unit})`}
+                    value={customAmount}
+                    onChange={(e) => setCustomAmount(e.target.value)}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT }}
+                  />
+                  <button
+                    onClick={() => { if (customAmount) { logFeed(parseFloat(customAmount)); setQuickLogModal(null); } }}
+                    disabled={!customAmount}
+                    style={{
+                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                      cursor: customAmount ? 'pointer' : 'not-allowed',
+                      background: customAmount ? ACCENT : BORDER, color: 'white', opacity: customAmount ? 1 : 0.55,
+                    }}
+                  >Log</button>
+                </div>
+              </>
+            )}
+
+            {quickLogModal === 'diaper' && (
+              <>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Diaper</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  {[
+                    { type: 'wet', label: 'Wet', emoji: '💧' },
+                    { type: 'dirty', label: 'Dirty', emoji: '💩' },
+                    { type: 'both', label: 'Both', emoji: '💧💩' },
+                  ].map(({ type, label, emoji }) => (
+                    <button key={type} onClick={() => logDiaper(type)} style={{
+                      padding: '20px 8px', border: `1.5px solid ${BORDER}`, borderRadius: 14,
+                      cursor: 'pointer', background: CARD, display: 'flex', flexDirection: 'column',
+                      alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: TEXT,
+                    }}>
+                      <span style={{ fontSize: 28 }}>{emoji}</span>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {quickLogModal === 'pump' && (
+              <>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Pump</h3>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    placeholder={`Amount (${unit})`}
+                    value={pumpAmount}
+                    onChange={(e) => setPumpAmount(e.target.value)}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT }}
+                  />
+                  <button
+                    onClick={() => { if (pumpAmount) logPump(parseFloat(pumpAmount)); }}
+                    disabled={!pumpAmount}
+                    style={{
+                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                      cursor: pumpAmount ? 'pointer' : 'not-allowed',
+                      background: pumpAmount ? ACCENT : BORDER, color: 'white', opacity: pumpAmount ? 1 : 0.55,
+                    }}
+                  >Log</button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Bottom tab bar */}
       <div style={{

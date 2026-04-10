@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff } from 'lucide-react';
+import { db } from './firebase';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
 const notifSupported = typeof Notification !== 'undefined';
 const ua = navigator.userAgent;
@@ -36,6 +38,10 @@ export default function App() {
   const [wakeStartTime, setWakeStartTime] = useState(null);
   const [wakeWindows, setWakeWindows] = useState([]);
   const [wakeElapsed, setWakeElapsed] = useState('');
+  const [roomCode, setRoomCode] = useState(() => localStorage.getItem('roomCode') || '');
+  const [roomInput, setRoomInput] = useState('');
+  const [roomError, setRoomError] = useState('');
+  const [roomLoading, setRoomLoading] = useState(false);
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [notifMuted, setNotifMuted] = useState(() => localStorage.getItem('notifMuted') === 'true');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
@@ -49,47 +55,83 @@ export default function App() {
 
 
   // Load from localStorage
-  useEffect(() => {
+  // Firestore sync helper
+  const syncRoom = (code, data) => {
+    setDoc(doc(db, 'rooms', code), data, { merge: true }).catch(console.error);
+  };
+
+  // Room management
+  const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const createRoom = () => {
+    const code = generateCode();
+    const initial = {
+      feeds, diapers, pumps, wakeWindows,
+      wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
+      settings: { unit, babyAge, babyName },
+    };
+    setDoc(doc(db, 'rooms', code), initial).then(() => {
+      localStorage.setItem('roomCode', code);
+      setRoomCode(code);
+    }).catch(() => setRoomError('Failed to create room. Check your connection.'));
+  };
+
+  const joinRoom = async () => {
+    const code = roomInput.trim().toUpperCase();
+    if (!code) return;
+    setRoomLoading(true);
+    setRoomError('');
     try {
-      const feedsData = localStorage.getItem('feeds');
-      const settingsData = localStorage.getItem('settings');
-      if (feedsData) {
-        const parsed = JSON.parse(feedsData);
-        setFeeds(parsed);
-        if (parsed.length > 0) {
-          const lastFeed = parsed[parsed.length - 1];
-          const nextTime = new Date(lastFeed.timestamp);
+      const { getDoc } = await import('firebase/firestore');
+      const snap = await getDoc(doc(db, 'rooms', code));
+      if (!snap.exists()) {
+        setRoomError('Room not found. Check the code and try again.');
+      } else {
+        localStorage.setItem('roomCode', code);
+        setRoomCode(code);
+      }
+    } catch {
+      setRoomError('Failed to join room. Check your connection.');
+    }
+    setRoomLoading(false);
+  };
+
+  // Real-time sync from Firestore
+  useEffect(() => {
+    if (!roomCode) return;
+    const unsub = onSnapshot(doc(db, 'rooms', roomCode), (snap) => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (d.feeds) {
+        setFeeds(d.feeds);
+        const last = d.feeds[d.feeds.length - 1];
+        if (last) {
+          const nextTime = new Date(last.timestamp);
           nextTime.setHours(nextTime.getHours() + 3);
           setNextFeedTime(nextTime);
         }
       }
-      if (settingsData) {
-        const parsed = JSON.parse(settingsData);
-        setUnit(parsed.unit || 'ml');
-        setBabyAge(parsed.babyAge || 2);
-        setBabyName(parsed.babyName || '');
+      if (d.settings) {
+        setUnit(d.settings.unit || 'ml');
+        setBabyAge(d.settings.babyAge || 2);
+        setBabyName(d.settings.babyName || '');
       }
-      const diapersData = localStorage.getItem('diapers');
-      const pumpsData = localStorage.getItem('pumps');
-      if (diapersData) setDiapers(JSON.parse(diapersData));
-      if (pumpsData) setPumps(JSON.parse(pumpsData));
-      const wakeData = localStorage.getItem('wakeWindows');
-      const wakeState = localStorage.getItem('wakeState');
-      if (wakeData) setWakeWindows(JSON.parse(wakeData));
-      if (wakeState) {
-        const { awake, startTime } = JSON.parse(wakeState);
-        setIsBabyAwake(awake);
-        setWakeStartTime(startTime ? new Date(startTime) : null);
+      if (d.diapers) setDiapers(d.diapers);
+      if (d.pumps) setPumps(d.pumps);
+      if (d.wakeWindows) setWakeWindows(d.wakeWindows);
+      if (d.wakeState) {
+        setIsBabyAwake(d.wakeState.awake);
+        setWakeStartTime(d.wakeState.startTime ? new Date(d.wakeState.startTime) : null);
       }
-    } catch (e) {
-      console.log('Starting fresh');
-    }
-  }, []);
+    });
+    return () => unsub();
+  }, [roomCode]);
 
   // Save settings
   useEffect(() => {
-    localStorage.setItem('settings', JSON.stringify({ unit, babyAge, babyName }));
-  }, [unit, babyAge, babyName]);
+    if (!roomCode) return;
+    syncRoom(roomCode, { settings: { unit, babyAge, babyName } });
+  }, [unit, babyAge, babyName, roomCode]);
 
   // Countdown timer
   useEffect(() => {
@@ -154,7 +196,7 @@ export default function App() {
       const now = new Date();
       setIsBabyAwake(true);
       setWakeStartTime(now);
-      localStorage.setItem('wakeState', JSON.stringify({ awake: true, startTime: now.toISOString() }));
+      syncRoom(roomCode, { wakeState: { awake: true, startTime: now.toISOString() } });
     } else {
       const ended = new Date();
       const entry = { start: wakeStartTime.toISOString(), end: ended.toISOString() };
@@ -162,8 +204,7 @@ export default function App() {
       setWakeWindows(updated);
       setIsBabyAwake(false);
       setWakeStartTime(null);
-      localStorage.setItem('wakeWindows', JSON.stringify(updated));
-      localStorage.setItem('wakeState', JSON.stringify({ awake: false, startTime: null }));
+      syncRoom(roomCode, { wakeWindows: updated, wakeState: { awake: false, startTime: null } });
     }
   };
 
@@ -210,7 +251,7 @@ export default function App() {
     };
     const updatedFeeds = [...feeds, newFeed];
     setFeeds(updatedFeeds);
-    localStorage.setItem('feeds', JSON.stringify(updatedFeeds));
+    syncRoom(roomCode, { feeds: updatedFeeds });
     const nextTime = new Date();
     nextTime.setHours(nextTime.getHours() + 3);
     setNextFeedTime(nextTime);
@@ -240,7 +281,7 @@ export default function App() {
     const entry = { timestamp: new Date().toISOString(), type };
     const updated = [...diapers, entry];
     setDiapers(updated);
-    localStorage.setItem('diapers', JSON.stringify(updated));
+    syncRoom(roomCode, { diapers: updated });
     setQuickLogModal(null);
   };
 
@@ -248,7 +289,7 @@ export default function App() {
     const entry = { timestamp: new Date().toISOString(), amount: unit === 'oz' ? ozToMl(amount) : amount };
     const updated = [...pumps, entry];
     setPumps(updated);
-    localStorage.setItem('pumps', JSON.stringify(updated));
+    syncRoom(roomCode, { pumps: updated });
     setPumpAmount('');
     setQuickLogModal(null);
   };
@@ -417,9 +458,15 @@ export default function App() {
     <div style={{ padding: '32px 20px 24px' }}>
       {/* Title */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
-          {babyName ? `${babyName}'s Tracker` : "babies.fit"}
-        </h1>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
+            {babyName ? `${babyName}'s Tracker` : "babies.fit"}
+          </h1>
+          <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
+            <span style={{ fontSize: 12, color: TEXT2, fontWeight: 600, letterSpacing: 1 }}>Room: {roomCode}</span>
+            <span style={{ fontSize: 10, color: TEXT2 }}>⎘</span>
+          </button>
+        </div>
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => {
@@ -1271,6 +1318,36 @@ export default function App() {
     </div>
     );
   };
+
+  if (!roomCode) return (
+    <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: BG }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 8 }}>babies.fit</h1>
+      <p style={{ fontSize: 15, color: TEXT2, marginBottom: 40 }}>Sync with your partner in real time</p>
+
+      <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', marginBottom: 16 }}>
+        <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Create a room</p>
+        <p style={{ margin: '0 0 16px', fontSize: 14, color: TEXT2, lineHeight: 1.5 }}>Start a new shared room and invite your partner with a code.</p>
+        <button onClick={createRoom} style={{ width: '100%', padding: '14px', background: ACCENT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+          Create Room
+        </button>
+      </div>
+
+      <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>
+        <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Join a room</p>
+        <input
+          type="text"
+          placeholder="Enter room code"
+          value={roomInput}
+          onChange={e => { setRoomInput(e.target.value.toUpperCase()); setRoomError(''); }}
+          style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, letterSpacing: 2, marginBottom: 12 }}
+        />
+        {roomError && <p style={{ margin: '0 0 10px', fontSize: 13, color: RED }}>{roomError}</p>}
+        <button onClick={joinRoom} disabled={roomLoading} style={{ width: '100%', padding: '14px', background: roomLoading ? BORDER : TEXT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: roomLoading ? 'default' : 'pointer' }}>
+          {roomLoading ? 'Joining…' : 'Join Room'}
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <div style={{

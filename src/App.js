@@ -37,6 +37,7 @@ export default function App() {
   const [wakeWindows, setWakeWindows] = useState([]);
   const [wakeElapsed, setWakeElapsed] = useState('');
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
+  const [notifMuted, setNotifMuted] = useState(() => localStorage.getItem('notifMuted') === 'true');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
   const [showTodayDetails, setShowTodayDetails] = useState(true);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
@@ -97,7 +98,7 @@ export default function App() {
         const diff = nextFeedTime - new Date();
         if (diff <= 0) {
           setTimeUntilFeed('Feed time!');
-          if (!notificationFired.current && notifSupported && Notification.permission === 'granted') {
+          if (!notificationFired.current && notifSupported && Notification.permission === 'granted' && !notifMuted) {
             notificationFired.current = true;
             new Notification('Time to feed! 🍼', {
               body: `It's been 3 hours — ${babyName || 'baby'} might be hungry!`,
@@ -424,14 +425,21 @@ export default function App() {
             onClick={() => {
               if (notifPermission === 'default') {
                 requestNotifications();
+              } else if (notifPermission === 'granted') {
+                const next = !notifMuted;
+                setNotifMuted(next);
+                localStorage.setItem('notifMuted', next);
+                setShowBellTooltip(false);
               } else {
                 setShowBellTooltip(v => !v);
               }
             }}
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
           >
-            {notifPermission === 'granted' && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: GREEN, border: '1.5px solid white' }} />}
-            {notifPermission === 'granted' ? <Bell size={18} color={TEXT2} /> : <BellOff size={18} color={notifPermission === 'denied' ? RED : TEXT2} />}
+            {notifPermission === 'granted' && !notifMuted && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: GREEN, border: '1.5px solid white' }} />}
+            {notifPermission === 'granted' && !notifMuted
+              ? <Bell size={18} color={TEXT2} />
+              : <BellOff size={18} color={notifPermission === 'denied' || notifMuted ? RED : TEXT2} />}
           </button>
           {showBellTooltip && (
             <div style={{
@@ -441,12 +449,7 @@ export default function App() {
               padding: '10px 14px', borderRadius: 10,
               width: 220, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
             }}>
-              {notifPermission === 'granted' ? (
-                <>
-                  <div style={{ marginBottom: 6 }}>You'll be alerted at feed time.</div>
-                  <div style={{ color: 'rgba(255,255,255,0.65)' }}>To turn off: {notifSettingsPath}.</div>
-                </>
-              ) : notifPermission === 'denied' ? (
+              {notifPermission === 'denied' ? (
                 <>
                   <div style={{ marginBottom: 6 }}>Notifications are blocked.</div>
                   <div style={{ color: 'rgba(255,255,255,0.65)' }}>To enable: {notifSettingsPath}.</div>

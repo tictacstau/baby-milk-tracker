@@ -38,6 +38,7 @@ export default function App() {
   const [wakeElapsed, setWakeElapsed] = useState('');
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
+  const [showTodayDetails, setShowTodayDetails] = useState(true);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
   const [diapers, setDiapers] = useState([]);
@@ -420,7 +421,13 @@ export default function App() {
         </h1>
         <div style={{ position: 'relative' }}>
           <button
-            onClick={() => setShowBellTooltip(v => !v)}
+            onClick={() => {
+              if (notifPermission === 'default') {
+                requestNotifications();
+              } else {
+                setShowBellTooltip(v => !v);
+              }
+            }}
             style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
           >
             {notifPermission === 'granted' && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: GREEN, border: '1.5px solid white' }} />}
@@ -445,7 +452,10 @@ export default function App() {
                   <div style={{ color: 'rgba(255,255,255,0.65)' }}>To enable: {notifSettingsPath}.</div>
                 </>
               ) : (
-                <div>Notifications not enabled.</div>
+                <>
+                  <div style={{ marginBottom: 6 }}>Notifications aren't supported on this browser.</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)' }}>Try opening the app in Safari on iOS or Chrome on Android.</div>
+                </>
               )}
             </div>
           )}
@@ -540,10 +550,12 @@ export default function App() {
 
       {/* Today summary */}
       <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-          Today
-        </p>
+        <button onClick={() => setShowTodayDetails(v => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTodayDetails ? 14 : 0 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Today</span>
+          {showTodayDetails ? <ChevronUp size={16} color={TEXT2} /> : <ChevronDown size={16} color={TEXT2} />}
+        </button>
 
+        {showTodayDetails && <>
         {/* Feed row */}
         <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Feeds</p>
         <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 18 }}>
@@ -654,6 +666,7 @@ export default function App() {
             </>
           );
         })()}
+        </>}
       </div>
     </div>
   );

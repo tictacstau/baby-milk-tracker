@@ -1,7 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Bell, BellOff } from 'lucide-react';
 
 const notifSupported = typeof Notification !== 'undefined';
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua);
+const isAndroid = /Android/.test(ua);
+const notifSettingsPath = isIOS
+  ? 'Settings app → Safari → Notifications'
+  : isAndroid
+  ? 'Chrome menu → Settings → Site settings → Notifications'
+  : 'Browser settings → Site settings → Notifications';
 
 const ACCENT = '#5856D6';
 const BG = '#F2F2F7';
@@ -28,6 +36,7 @@ export default function App() {
   const [wakeWindows, setWakeWindows] = useState([]);
   const [wakeElapsed, setWakeElapsed] = useState('');
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
+  const [showBellTooltip, setShowBellTooltip] = useState(false);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
 
@@ -367,9 +376,43 @@ export default function App() {
   const HomeTab = () => (
     <div style={{ padding: '32px 20px 24px' }}>
       {/* Title */}
-      <h1 style={{ margin: '0 0 4px', fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
-        {babyName ? `${babyName}'s Tracker` : "babies.fit"}
-      </h1>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
+          {babyName ? `${babyName}'s Tracker` : "babies.fit"}
+        </h1>
+        <div style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowBellTooltip(v => !v)}
+            style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+          >
+            {notifPermission === 'granted' && <span style={{ position: 'absolute', top: 4, right: 4, width: 7, height: 7, borderRadius: '50%', background: GREEN, border: '1.5px solid white' }} />}
+            {notifPermission === 'granted' ? <Bell size={18} color={TEXT2} /> : <BellOff size={18} color={notifPermission === 'denied' ? RED : TEXT2} />}
+          </button>
+          {showBellTooltip && (
+            <div style={{
+              position: 'absolute', top: 38, right: 0, zIndex: 100,
+              background: '#1a1a2e', color: 'white',
+              fontSize: 12, fontWeight: 500, lineHeight: 1.5,
+              padding: '10px 14px', borderRadius: 10,
+              width: 220, boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            }}>
+              {notifPermission === 'granted' ? (
+                <>
+                  <div style={{ marginBottom: 6 }}>You'll be alerted at feed time.</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)' }}>To turn off: {notifSettingsPath}.</div>
+                </>
+              ) : notifPermission === 'denied' ? (
+                <>
+                  <div style={{ marginBottom: 6 }}>Notifications are blocked.</div>
+                  <div style={{ color: 'rgba(255,255,255,0.65)' }}>To enable: {notifSettingsPath}.</div>
+                </>
+              ) : (
+                <div>Notifications not enabled.</div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
       <p style={{ margin: '0 0 36px', fontSize: 15, color: TEXT2 }}>You got this, Mama & Papa Bear 💪</p>
 
       {/* Timer ring */}
@@ -436,19 +479,6 @@ export default function App() {
         );
       })()}
 
-      {/* Notification status */}
-      {notifPermission === 'granted' && (
-        <div style={{ background: CARD, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: GREEN, flexShrink: 0 }} />
-          <span style={{ fontSize: 14, color: TEXT2 }}>Notifications on — you'll be alerted at feed time</span>
-        </div>
-      )}
-      {notifPermission === 'denied' && (
-        <div style={{ background: CARD, borderRadius: 14, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: RED, flexShrink: 0 }} />
-          <span style={{ fontSize: 14, color: TEXT2 }}>Notifications blocked — enable in browser settings</span>
-        </div>
-      )}
 
       {/* Today summary */}
       <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
@@ -473,6 +503,40 @@ export default function App() {
             <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Goal</div>
           </div>
         </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, background: BORDER, margin: '14px 0' }} />
+
+        {/* Sleep row */}
+        {(() => {
+          const todayWW = getTodayWakeWindows();
+          const totalAwakeMs = todayWW.reduce((sum, w) => sum + (new Date(w.end) - new Date(w.start)), 0);
+          const { max } = getRecommendedWakeWindow();
+          const wwOnTrack = todayWW.filter(w => (new Date(w.end) - new Date(w.start)) / 60000 <= max).length;
+          return (
+            <>
+              <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Sleep</p>
+              <div style={{ display: 'flex', justifyContent: 'space-around' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Windows</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Awake</div>
+                </div>
+                <div style={{ width: 1, background: BORDER }} />
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: 28, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5 }}>
+                    {todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—'}
+                  </div>
+                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>On track</div>
+                </div>
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

@@ -157,7 +157,7 @@ export default function App() {
       }
     }, 1000);
     return () => clearInterval(interval);
-  }, [nextFeedTime, babyName]);
+  }, [nextFeedTime, babyName, notifMuted]);
 
   // Wake window live timer
   useEffect(() => {

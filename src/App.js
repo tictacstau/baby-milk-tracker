@@ -462,9 +462,9 @@ export default function App() {
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
             {babyName ? `${babyName}'s Tracker` : "babies.fit"}
           </h1>
-          <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-            <span style={{ fontSize: 12, color: TEXT2, fontWeight: 600, letterSpacing: 1 }}>Room: {roomCode}</span>
-            <span style={{ fontSize: 10, color: TEXT2 }}>⎘</span>
+          <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: '#EDEDFA', border: 'none', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
+            <span style={{ fontSize: 12, color: ACCENT, fontWeight: 700, letterSpacing: 1.5 }}>{roomCode}</span>
+            <span style={{ fontSize: 10, color: ACCENT }}>⎘</span>
           </button>
         </div>
         <div style={{ position: 'relative' }}>

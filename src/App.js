@@ -1321,7 +1321,7 @@ export default function App() {
 
   if (!roomCode) return (
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: BG }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 8 }}>babies.fit</h1>
+      <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 8 }}>TeamBaby</h1>
       <p style={{ fontSize: 15, color: TEXT2, marginBottom: 40 }}>Sync with your partner in real time</p>
 
       <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', marginBottom: 16 }}>

@@ -1328,6 +1328,7 @@ export default function App() {
 
   if (!roomCode) return (
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: BG }}>
+      <img src="/favicon.svg" alt="TeamBaby" style={{ width: 56, height: 56, marginBottom: 12 }} />
       <h1 style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 8 }}>TeamBaby</h1>
       <p style={{ fontSize: 15, color: TEXT2, marginBottom: 40 }}>Sync with your partner in real time</p>
 

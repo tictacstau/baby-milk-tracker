@@ -63,17 +63,23 @@ export default function App() {
   // Room management
   const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
 
-  const createRoom = () => {
-    const code = generateCode();
-    const initial = {
-      feeds, diapers, pumps, wakeWindows,
-      wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
-      settings: { unit, babyAge, babyName },
-    };
-    setDoc(doc(db, 'rooms', code), initial).then(() => {
+  const createRoom = async () => {
+    setRoomLoading(true);
+    setRoomError('');
+    try {
+      const code = generateCode();
+      const initial = {
+        feeds, diapers, pumps, wakeWindows,
+        wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
+        settings: { unit, babyAge, babyName },
+      };
+      await setDoc(doc(db, 'rooms', code), initial);
       localStorage.setItem('roomCode', code);
       setRoomCode(code);
-    }).catch(() => setRoomError('Failed to create room. Check your connection.'));
+    } catch (e) {
+      setRoomError(`Failed to create room: ${e.message}`);
+    }
+    setRoomLoading(false);
   };
 
   const joinRoom = async () => {
@@ -1327,9 +1333,10 @@ export default function App() {
       <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', marginBottom: 16 }}>
         <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Create a room</p>
         <p style={{ margin: '0 0 16px', fontSize: 14, color: TEXT2, lineHeight: 1.5 }}>Start a new shared room and invite your partner with a code.</p>
-        <button onClick={createRoom} style={{ width: '100%', padding: '14px', background: ACCENT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
-          Create Room
+        <button onClick={createRoom} disabled={roomLoading} style={{ width: '100%', padding: '14px', background: roomLoading ? BORDER : ACCENT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: roomLoading ? 'default' : 'pointer' }}>
+          {roomLoading ? 'Creating…' : 'Create Room'}
         </button>
+        {roomError && <p style={{ margin: '10px 0 0', fontSize: 13, color: RED }}>{roomError}</p>}
       </div>
 
       <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}>

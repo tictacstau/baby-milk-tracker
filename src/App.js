@@ -73,11 +73,12 @@ export default function App() {
         wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
         settings: { unit, babyAge, babyName },
       };
-      await setDoc(doc(db, 'rooms', code), initial);
+      const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timed out — check Firebase config')), 10000));
+      await Promise.race([setDoc(doc(db, 'rooms', code), initial), timeout]);
       localStorage.setItem('roomCode', code);
       setRoomCode(code);
     } catch (e) {
-      setRoomError(`Failed to create room: ${e.message}`);
+      setRoomError(`Error: ${e.message}`);
     }
     setRoomLoading(false);
   };

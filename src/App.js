@@ -521,7 +521,6 @@ export default function App() {
           )}
         </div>
       </div>
-      <p style={{ margin: '0 0 36px', fontSize: 15, color: TEXT2 }}>You got this, Mama & Papa Bear 💪</p>
 
       {/* Timer ring */}
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 32 }}>

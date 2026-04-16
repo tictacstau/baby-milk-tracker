@@ -46,6 +46,7 @@ export default function App() {
   const [pumps, setPumps] = useState([]);
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
   const [pumpAmount, setPumpAmount] = useState('');
+  const [showCalculator, setShowCalculator] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
 
@@ -1307,20 +1308,25 @@ export default function App() {
                 </div>
                 {/* Formula calculator */}
                 <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
-                  <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Formula Calculator</p>
-                  <p style={{ margin: '0 0 12px', fontSize: 13, color: TEXT2 }}>For {convert(recommended)}{unit} per feed:</p>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                    {[
-                      { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
-                      { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
-                    ].map(({ value, label }) => (
-                      <div key={label} style={{ background: BG, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-                        <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT, marginBottom: 2 }}>{value}</div>
-                        <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-                      </div>
-                    ))}
-                  </div>
-                  <p style={{ margin: '10px 0 0', fontSize: 11, color: TEXT2, fontStyle: 'italic' }}>1 scoop per 30ml (1oz) water</p>
+                  <button onClick={() => setShowCalculator(v => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showCalculator ? 12 : 0 }}>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Formula Calculator</span>
+                    {showCalculator ? <ChevronUp size={15} color={TEXT2} /> : <ChevronDown size={15} color={TEXT2} />}
+                  </button>
+                  {showCalculator && <>
+                    <p style={{ margin: '0 0 12px', fontSize: 13, color: TEXT2 }}>For {convert(recommended)}{unit} per feed:</p>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      {[
+                        { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
+                        { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
+                      ].map(({ value, label }) => (
+                        <div key={label} style={{ background: BG, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+                          <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT, marginBottom: 2 }}>{value}</div>
+                          <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <p style={{ margin: '10px 0 0', fontSize: 11, color: TEXT2, fontStyle: 'italic' }}>1 scoop per 30ml (1oz) water</p>
+                  </>}
                 </div>
               </>
             )}

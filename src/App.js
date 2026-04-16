@@ -46,6 +46,10 @@ export default function App() {
   const [notifMuted, setNotifMuted] = useState(() => localStorage.getItem('notifMuted') === 'true');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
   const [showTodayDetails, setShowTodayDetails] = useState(false);
+  const [showFeeds, setShowFeeds] = useState(false);
+  const [showSleep, setShowSleep] = useState(false);
+  const [showDiapers, setShowDiapers] = useState(false);
+  const [showPumping, setShowPumping] = useState(false);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
   const [diapers, setDiapers] = useState([]);
@@ -882,10 +886,6 @@ export default function App() {
     const pumpTotal = todayP.reduce((sum, p) => sum + p.amount, 0);
     const avgPump = todayP.length > 0 ? Math.round(pumpTotal / todayP.length) : 0;
 
-    const [showFeeds, setShowFeeds] = useState(false);
-    const [showSleep, setShowSleep] = useState(false);
-    const [showDiapers, setShowDiapers] = useState(false);
-    const [showPumping, setShowPumping] = useState(false);
 
     const SectionHeader = ({ label, show, onToggle }) => (
       <button onClick={onToggle} style={{ background: 'none', border: 'none', padding: '0 0 10px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>

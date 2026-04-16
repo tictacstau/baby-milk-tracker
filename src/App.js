@@ -896,7 +896,18 @@ export default function App() {
 
     return (
     <div style={{ padding: '32px 20px 24px' }}>
-      <h2 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
+        <button
+          onClick={() => {
+            const allOpen = showFeeds && showSleep && showDiapers && showPumping;
+            setShowFeeds(!allOpen); setShowSleep(!allOpen); setShowDiapers(!allOpen); setShowPumping(!allOpen);
+          }}
+          style={{ background: 'none', border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '5px 14px', fontSize: 12, fontWeight: 600, color: TEXT2, cursor: 'pointer' }}
+        >
+          {showFeeds && showSleep && showDiapers && showPumping ? 'Collapse All' : 'Expand All'}
+        </button>
+      </div>
 
       {/* ── Feeds section ── */}
       <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />

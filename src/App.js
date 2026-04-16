@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -13,22 +13,12 @@ const notifSettingsPath = isIOS
   ? 'Chrome menu → Settings → Site settings → Notifications'
   : 'Browser settings → Site settings → Notifications';
 
-const ACCENT = '#5856D6';
-const BG = '#F2F2F7';
-const CARD = '#FFFFFF';
-const TEXT = '#1C1C1E';
-const TEXT2 = '#8E8E93';
-const BORDER = '#E5E5EA';
-const GREEN = '#34C759';
-const RED = '#FF3B30';
-const AMBER = '#FF9500';
 
 export default function App() {
   const [unit, setUnit] = useState('ml');
   const [feeds, setFeeds] = useState([]);
   const [babyAge, setBabyAge] = useState(2);
   const [babyName, setBabyName] = useState('');
-  const [showCalculator, setShowCalculator] = useState(false);
   const [customAmount, setCustomAmount] = useState('');
   const [nextFeedTime, setNextFeedTime] = useState(null);
   const [activeTab, setActiveTab] = useState('home');
@@ -56,9 +46,26 @@ export default function App() {
   const [pumps, setPumps] = useState([]);
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
   const [pumpAmount, setPumpAmount] = useState('');
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
 
+  const isDark = theme === 'dark' || (theme === 'system' && systemDark);
+  const ACCENT = '#5856D6';
+  const BG = isDark ? '#000000' : '#F2F2F7';
+  const CARD = isDark ? '#1C1C1E' : '#FFFFFF';
+  const TEXT = isDark ? '#FFFFFF' : '#1C1C1E';
+  const TEXT2 = '#8E8E93';
+  const BORDER = isDark ? '#3A3A3C' : '#E5E5EA';
+  const GREEN = '#34C759';
+  const RED = '#FF3B30';
+  const AMBER = '#FF9500';
+  const ACCENT_BG = isDark ? 'rgba(88,86,214,0.25)' : '#EDEDFA';
+  const FEED_BG = isDark ? 'rgba(88,86,214,0.2)' : '#F0F0FF';
+  const DIAPER_BG = isDark ? 'rgba(255,149,0,0.15)' : '#FFF3E0';
+  const PUMP_BG = isDark ? 'rgba(52,199,89,0.15)' : '#E8FAF0';
+  const WAKE_BG = isDark ? 'rgba(255,149,0,0.12)' : '#FFF8EC';
+  const OVER_BG = isDark ? 'rgba(255,59,48,0.15)' : '#FFF0EE';
 
-  // Load from localStorage
   // Firestore sync helper
   const syncRoom = (code, data) => {
     setDoc(doc(db, 'rooms', code), data, { merge: true }).catch(console.error);
@@ -169,6 +176,15 @@ export default function App() {
     }, 1000);
     return () => clearInterval(interval);
   }, [nextFeedTime, babyName, notifMuted]);
+
+  // System dark mode listener
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const handler = (e) => setSystemDark(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // Wake window live timer
   useEffect(() => {
@@ -357,105 +373,6 @@ export default function App() {
 
   const toggleDay = (key) => setExpandedDays((prev) => ({ ...prev, [key]: !prev[key] }));
 
-  // ── Sleep Tab ─────────────────────────────────────────────
-  const SleepTab = () => {
-    const status = getWakeStatus();
-    const { min, max } = getRecommendedWakeWindow();
-    const todayWakeWindows = getTodayWakeWindows();
-
-    return (
-      <div style={{ padding: '32px 20px 24px' }}>
-        <h2 style={{ margin: '0 0 4px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Wake Windows</h2>
-        <p style={{ margin: '0 0 24px', fontSize: 15, color: TEXT2 }}>
-          Recommended: {min}–{max} min for a {babyAge}-week-old
-        </p>
-
-        {/* Toggle button */}
-        <button onClick={toggleWakeState} style={{
-          width: '100%', border: 'none', borderRadius: 18, padding: '22px 20px',
-          cursor: 'pointer', marginBottom: 16,
-          background: isBabyAwake ? '#FFF8EC' : ACCENT,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          transition: 'background 0.2s',
-        }}>
-          {isBabyAwake
-            ? <Moon size={22} color={AMBER} />
-            : <Sun size={22} color="white" />}
-          <span style={{ fontSize: 17, fontWeight: 700, color: isBabyAwake ? AMBER : 'white' }}>
-            {isBabyAwake ? 'Baby fell asleep' : 'Baby woke up'}
-          </span>
-        </button>
-
-        {/* Live timer */}
-        {isBabyAwake && wakeStartTime && (
-          <div style={{ background: CARD, borderRadius: 16, padding: '20px', marginBottom: 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-            <div style={{ fontSize: 48, fontWeight: 700, letterSpacing: -1, color: status?.color || TEXT, lineHeight: 1 }}>
-              {wakeElapsed || '0m'}
-            </div>
-            <div style={{ fontSize: 13, color: TEXT2, marginTop: 6 }}>awake since {new Date(wakeStartTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</div>
-            {status && (
-              <div style={{
-                display: 'inline-block', marginTop: 12,
-                padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 700,
-                background: status.color === GREEN ? '#E8FAF0' : status.color === AMBER ? '#FFF3E0' : '#FFF0EE',
-                color: status.color,
-              }}>
-                {status.label}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Today's wake windows */}
-        {todayWakeWindows.length > 0 && (
-          <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <p style={{ margin: '0 0 14px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-              Today's Wake Windows
-            </p>
-            {[...todayWakeWindows].reverse().map((w, idx) => {
-              const duration = new Date(w.end) - new Date(w.start);
-              const { max } = getRecommendedWakeWindow();
-              const withinGoal = duration / 60000 <= max;
-              return (
-                <div key={idx} style={{
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  padding: '11px 0',
-                  borderBottom: idx < todayWakeWindows.length - 1 ? `1px solid ${BORDER}` : 'none',
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ width: 34, height: 34, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <Sun size={15} color={ACCENT} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
-                        {new Date(w.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – {new Date(w.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                      </div>
-                      <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{formatDuration(duration)}</div>
-                    </div>
-                  </div>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                    background: withinGoal ? '#E8FAF0' : '#FFF0EE',
-                    color: withinGoal ? GREEN : RED,
-                  }}>
-                    {withinGoal ? 'On track' : 'Over window'}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {!isBabyAwake && todayWakeWindows.length === 0 && (
-          <div style={{ background: CARD, borderRadius: 16, padding: '48px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <Moon size={40} color={BORDER} style={{ marginBottom: 12 }} />
-            <p style={{ margin: 0, fontSize: 15, color: TEXT2 }}>Tap the button when baby wakes up.</p>
-          </div>
-        )}
-      </div>
-    );
-  };
 
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
@@ -472,7 +389,7 @@ export default function App() {
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>
             {babyName ? `${babyName}'s Tracker` : "TeamBaby"}
           </h1>
-          <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: '#EDEDFA', border: 'none', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
+          <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: ACCENT_BG, border: 'none', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
             <span style={{ fontSize: 12, color: ACCENT, fontWeight: 700, letterSpacing: 1.5 }}>Room: {roomCode}</span>
             <span style={{ fontSize: 10, color: ACCENT }}>⎘</span>
           </button>
@@ -557,10 +474,10 @@ export default function App() {
       {/* Quick Log Strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
         {[
-          { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: '#F0F0FF' },
-          { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },
-          { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: '#F0F0FF' },
-          { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: '#E8FAF0' },
+          { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: FEED_BG },
+          { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: DIAPER_BG },
+          { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: FEED_BG },
+          { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: PUMP_BG },
         ].map(({ id, label, Icon, color, bg }) => (
           <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
@@ -582,7 +499,7 @@ export default function App() {
         return (
           <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: isBabyAwake ? '#FFF8EC' : '#F0F0FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: isBabyAwake ? WAKE_BG : FEED_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {isBabyAwake ? <Sun size={18} color={AMBER} /> : <Moon size={18} color={ACCENT} />}
               </div>
               <div>
@@ -597,7 +514,7 @@ export default function App() {
             {status && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                background: status.color === GREEN ? '#E8FAF0' : status.color === AMBER ? '#FFF3E0' : '#FFF0EE',
+                background: status.color === GREEN ? PUMP_BG : status.color === AMBER ? DIAPER_BG : OVER_BG,
                 color: status.color,
               }}>
                 {status.label}
@@ -731,150 +648,31 @@ export default function App() {
     </div>
   );
 
-  // ── Log Tab ──────────────────────────────────────────────
-  const LogTab = () => (
-    <div style={{ padding: '32px 20px 24px' }}>
-      <h2 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Log a Feed</h2>
-
-      {/* Settings */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 20, alignItems: 'flex-end' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Baby's Name
-          </label>
-          <input
-            type="text"
-            placeholder="e.g. Liam"
-            value={babyName}
-            onChange={(e) => setBabyName(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }}
-          />
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Baby's Age (weeks)
-          </label>
-          <input
-            type="number"
-            value={babyAge || ''}
-            onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }}
-          />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>
-            Units
-          </label>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {['ml', 'oz'].map((u) => (
-              <button key={u} onClick={() => setUnit(u)} style={{
-                padding: '10px 18px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', transition: 'all 0.15s',
-                background: unit === u ? ACCENT : BG,
-                color: unit === u ? 'white' : TEXT2,
-              }}>
-                {u}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Quick amounts */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <p style={{ margin: '0 0 4px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>
-          Quick Log
-        </p>
-        <p style={{ margin: '0 0 16px', fontSize: 14, color: TEXT2 }}>
-          Recommended: {convert(recommended)}{unit} per feeding
-        </p>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
-          {quickLogAmounts.map((amount, i) => (
-            <button key={amount} onClick={() => logFeed(amount)} style={{
-              padding: '18px 8px', cursor: 'pointer',
-              border: i === 1 ? 'none' : `1.5px solid ${BORDER}`,
-              borderRadius: 14, fontSize: 17, fontWeight: 700,
-              background: i === 1 ? ACCENT : CARD,
-              color: i === 1 ? 'white' : TEXT,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-            }}>
-              {convert(amount)}{unit}
-              <span style={{ fontSize: 11, fontWeight: 500, color: i === 1 ? 'rgba(255,255,255,0.75)' : TEXT2 }}>
-                {i === 0 ? 'Less' : i === 1 ? 'Suggested' : 'More'}
-              </span>
-            </button>
-          ))}
-        </div>
-
-        {/* Custom amount */}
-        <div style={{ display: 'flex', gap: 8 }}>
-          <input
-            type="number"
-            placeholder={`Custom (${unit})`}
-            value={customAmount}
-            onChange={(e) => setCustomAmount(e.target.value)}
-            style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT }}
-          />
-          <button
-            onClick={() => customAmount && logFeed(parseFloat(customAmount))}
-            disabled={!customAmount}
-            style={{
-              padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
-              cursor: customAmount ? 'pointer' : 'not-allowed',
-              background: customAmount ? ACCENT : BORDER,
-              color: 'white', opacity: customAmount ? 1 : 0.55,
-              transition: 'opacity 0.15s',
-            }}
-          >
-            Log
-          </button>
-        </div>
-      </div>
-
-      {/* Formula calculator */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <button onClick={() => setShowCalculator(!showCalculator)} style={{
-          width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <Calculator size={20} color={ACCENT} />
-            <span style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>Formula Calculator</span>
-          </div>
-          <span style={{ fontSize: 22, color: TEXT2, lineHeight: 1, fontWeight: 300 }}>
-            {showCalculator ? '−' : '+'}
-          </span>
-        </button>
-
-        {showCalculator && (
-          <div style={{ marginTop: 16, padding: 16, background: BG, borderRadius: 12 }}>
-            <p style={{ margin: '0 0 14px', fontSize: 14, color: TEXT2 }}>
-              For {convert(recommended)}{unit} of milk:
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[
-                { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
-                { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
-              ].map(({ value, label }) => (
-                <div key={label} style={{ background: CARD, borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 30, fontWeight: 700, color: ACCENT, marginBottom: 4 }}>{value}</div>
-                  <div style={{ fontSize: 12, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-                </div>
-              ))}
-            </div>
-            <p style={{ margin: '12px 0 0', fontSize: 12, color: TEXT2, fontStyle: 'italic' }}>
-              Standard ratio: 1 scoop per 30ml (1oz) water
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  );
 
   // ── Settings Tab ─────────────────────────────────────────
   const SettingsTab = () => (
     <div style={{ padding: '32px 20px 24px' }}>
       <h2 style={{ margin: '0 0 24px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Settings</h2>
+
+      {/* Appearance */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Appearance</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ fontSize: 13, color: TEXT2, marginBottom: 10 }}>Theme</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { value: 'system', label: 'System' },
+            { value: 'light', label: 'Light' },
+            { value: 'dark', label: 'Dark' },
+          ].map(({ value, label }) => (
+            <button key={value} onClick={() => { setTheme(value); localStorage.setItem('theme', value); }} style={{
+              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              cursor: 'pointer',
+              background: theme === value ? ACCENT : BG,
+              color: theme === value ? 'white' : TEXT2,
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
 
       {/* Baby info */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby</p>
@@ -882,12 +680,12 @@ export default function App() {
         <div style={{ flex: 1, minWidth: 120 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
           <input type="text" placeholder="e.g. Liam" value={babyName} onChange={(e) => setBabyName(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }} />
+            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
         </div>
         <div style={{ flex: 1, minWidth: 120 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
           <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }} />
+            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
         </div>
       </div>
 
@@ -927,7 +725,7 @@ export default function App() {
           <div style={{ fontSize: 13, color: TEXT2, marginBottom: 4 }}>Share this code with your partner</div>
           <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT, letterSpacing: 3 }}>{roomCode}</div>
         </div>
-        <button onClick={() => navigator.clipboard?.writeText(roomCode)} style={{ background: '#EDEDFA', border: 'none', padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: ACCENT }}>
+        <button onClick={() => navigator.clipboard?.writeText(roomCode)} style={{ background: ACCENT_BG, border: 'none', padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: ACCENT }}>
           Copy
         </button>
       </div>
@@ -1102,7 +900,7 @@ export default function App() {
                 </div>
                 <span style={{
                   fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                  background: onTrack ? '#E8FAF0' : '#FFF0EE',
+                  background: onTrack ? PUMP_BG : OVER_BG,
                   color: onTrack ? GREEN : RED,
                 }}>
                   {onTrack ? 'On track' : 'Over window'}
@@ -1144,7 +942,7 @@ export default function App() {
               padding: '12px 0', borderBottom: idx < todayD.length - 1 ? `1px solid ${BORDER}` : 'none',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FFF3E0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: DIAPER_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Wind size={16} color={AMBER} />
                 </div>
                 <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
@@ -1188,7 +986,7 @@ export default function App() {
               padding: '12px 0', borderBottom: idx < todayP.length - 1 ? `1px solid ${BORDER}` : 'none',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#E8FAF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div style={{ width: 36, height: 36, borderRadius: '50%', background: PUMP_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Activity size={16} color={GREEN} />
                 </div>
                 <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
@@ -1289,7 +1087,7 @@ export default function App() {
                         <span style={{
                           fontSize: 11, fontWeight: 700, paddingLeft: 8, paddingRight: 8, paddingTop: 4, paddingBottom: 4,
                           borderRadius: 20,
-                          background: goalMet ? '#E8FAF0' : '#FFF0EE',
+                          background: goalMet ? PUMP_BG : OVER_BG,
                           color: goalMet ? GREEN : RED,
                         }}>
                           {goalMet ? 'Goal met' : `${goalPct}% of goal`}
@@ -1352,7 +1150,7 @@ export default function App() {
                                 </div>
                                 <span style={{
                                   fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                                  background: onTrack ? '#E8FAF0' : '#FFF0EE',
+                                  background: onTrack ? PUMP_BG : OVER_BG,
                                   color: onTrack ? GREEN : RED,
                                 }}>
                                   {onTrack ? 'On track' : 'Over window'}
@@ -1374,7 +1172,7 @@ export default function App() {
                               borderBottom: idx < dayD.length - 1 ? `1px solid ${BORDER}` : 'none',
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#FFF3E0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: DIAPER_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   <Wind size={13} color={AMBER} />
                                 </div>
                                 <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
@@ -1398,7 +1196,7 @@ export default function App() {
                               borderBottom: idx < dayP.length - 1 ? `1px solid ${BORDER}` : 'none',
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#E8FAF0', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: PUMP_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   <Activity size={13} color={GREEN} />
                                 </div>
                                 <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
@@ -1444,7 +1242,7 @@ export default function App() {
           placeholder="Enter room code"
           value={roomInput}
           onChange={e => { setRoomInput(e.target.value.toUpperCase()); setRoomError(''); }}
-          style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, letterSpacing: 2, marginBottom: 12 }}
+          style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, letterSpacing: 2, marginBottom: 12, background: CARD }}
         />
         {roomError && <p style={{ margin: '0 0 10px', fontSize: 13, color: RED }}>{roomError}</p>}
         <button onClick={joinRoom} disabled={roomLoading} style={{ width: '100%', padding: '14px', background: roomLoading ? BORDER : TEXT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: roomLoading ? 'default' : 'pointer' }}>
@@ -1513,7 +1311,7 @@ export default function App() {
                     placeholder={`Custom (${unit})`}
                     value={customAmount}
                     onChange={(e) => setCustomAmount(e.target.value)}
-                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT }}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
                   />
                   <button
                     onClick={() => { if (customAmount) { logFeed(parseFloat(customAmount)); setQuickLogModal(null); } }}
@@ -1559,7 +1357,7 @@ export default function App() {
                     placeholder={`Amount (${unit})`}
                     value={pumpAmount}
                     onChange={(e) => setPumpAmount(e.target.value)}
-                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT }}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
                   />
                   <button
                     onClick={() => { if (pumpAmount) logPump(parseFloat(pumpAmount)); }}
@@ -1585,7 +1383,7 @@ export default function App() {
         transform: 'translateX(-50%)',
         width: '100%',
         maxWidth: 430,
-        background: 'rgba(255,255,255,0.92)',
+        background: isDark ? 'rgba(28,28,30,0.92)' : 'rgba(255,255,255,0.92)',
         backdropFilter: 'blur(20px)',
         WebkitBackdropFilter: 'blur(20px)',
         borderTop: `1px solid ${BORDER}`,

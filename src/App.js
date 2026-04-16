@@ -700,24 +700,6 @@ export default function App() {
         ))}
       </div>
 
-      {/* Formula calculator */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Formula Calculator</p>
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <p style={{ margin: '0 0 14px', fontSize: 14, color: TEXT2 }}>For {convert(recommended)}{unit} of milk:</p>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          {[
-            { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
-            { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
-          ].map(({ value, label }) => (
-            <div key={label} style={{ background: BG, borderRadius: 12, padding: '16px', textAlign: 'center' }}>
-              <div style={{ fontSize: 30, fontWeight: 700, color: ACCENT, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-        <p style={{ margin: '12px 0 0', fontSize: 12, color: TEXT2, fontStyle: 'italic' }}>Standard ratio: 1 scoop per 30ml (1oz) water</p>
-      </div>
-
       {/* Room code */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Room</p>
       <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -1305,7 +1287,7 @@ export default function App() {
                     </button>
                   ))}
                 </div>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                   <input
                     type="number"
                     placeholder={`Custom (${unit})`}
@@ -1322,6 +1304,23 @@ export default function App() {
                       background: customAmount ? ACCENT : BORDER, color: 'white', opacity: customAmount ? 1 : 0.55,
                     }}
                   >Log</button>
+                </div>
+                {/* Formula calculator */}
+                <div style={{ borderTop: `1px solid ${BORDER}`, paddingTop: 16 }}>
+                  <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Formula Calculator</p>
+                  <p style={{ margin: '0 0 12px', fontSize: 13, color: TEXT2 }}>For {convert(recommended)}{unit} per feed:</p>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                    {[
+                      { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
+                      { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
+                    ].map(({ value, label }) => (
+                      <div key={label} style={{ background: BG, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
+                        <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT, marginBottom: 2 }}>{value}</div>
+                        <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <p style={{ margin: '10px 0 0', fontSize: 11, color: TEXT2, fontStyle: 'italic' }}>1 scoop per 30ml (1oz) water</p>
                 </div>
               </>
             )}

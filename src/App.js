@@ -882,13 +882,26 @@ export default function App() {
     const pumpTotal = todayP.reduce((sum, p) => sum + p.amount, 0);
     const avgPump = todayP.length > 0 ? Math.round(pumpTotal / todayP.length) : 0;
 
+    const [showFeeds, setShowFeeds] = useState(false);
+    const [showSleep, setShowSleep] = useState(false);
+    const [showDiapers, setShowDiapers] = useState(false);
+    const [showPumping, setShowPumping] = useState(false);
+
+    const SectionHeader = ({ label, show, onToggle }) => (
+      <button onClick={onToggle} style={{ background: 'none', border: 'none', padding: '0 0 10px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</span>
+        {show ? <ChevronUp size={16} color={TEXT2} /> : <ChevronDown size={16} color={TEXT2} />}
+      </button>
+    );
+
     return (
     <div style={{ padding: '32px 20px 24px' }}>
       <h2 style={{ margin: '0 0 20px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
 
       {/* ── Feeds section ── */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Feeds</p>
+      <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />
 
+      {showFeeds && <>
       {/* Progress ring card */}
       <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 24 }}>
         <div style={{ position: 'relative', width: pSize, height: pSize, flexShrink: 0 }}>
@@ -967,9 +980,12 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Sleep section ── */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Sleep</p>
+      </>}
 
+      {/* ── Sleep section ── */}
+      <SectionHeader label="Sleep" show={showSleep} onToggle={() => setShowSleep(v => !v)} />
+
+      {showSleep && <>
       {/* Sleep stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
         <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
@@ -1028,9 +1044,12 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Diapers section ── */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Diapers</p>
+      </>}
 
+      {/* ── Diapers section ── */}
+      <SectionHeader label="Diapers" show={showDiapers} onToggle={() => setShowDiapers(v => !v)} />
+
+      {showDiapers && <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
         {[
           { value: todayD.length || '—', label: 'Total' },
@@ -1069,9 +1088,12 @@ export default function App() {
         </div>
       )}
 
-      {/* ── Pumping section ── */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Pumping</p>
+      </>}
 
+      {/* ── Pumping section ── */}
+      <SectionHeader label="Pumping" show={showPumping} onToggle={() => setShowPumping(v => !v)} />
+
+      {showPumping && <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
         {[
           { value: todayP.length || '—', label: 'Sessions' },
@@ -1109,6 +1131,7 @@ export default function App() {
           <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No pumping sessions logged today yet.</p>
         </div>
       )}
+      </>}
 
       {/* Past days */}
       {(() => {

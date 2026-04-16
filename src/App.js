@@ -473,7 +473,7 @@ export default function App() {
             {babyName ? `${babyName}'s Tracker` : "TeamBaby"}
           </h1>
           <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: '#EDEDFA', border: 'none', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
-            <span style={{ fontSize: 12, color: ACCENT, fontWeight: 700, letterSpacing: 1.5 }}>{roomCode}</span>
+            <span style={{ fontSize: 12, color: ACCENT, fontWeight: 700, letterSpacing: 1.5 }}>Room: {roomCode}</span>
             <span style={{ fontSize: 10, color: ACCENT }}>⎘</span>
           </button>
         </div>

@@ -555,7 +555,7 @@ export default function App() {
       </div>
 
       {/* Quick Log Strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, marginBottom: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
         {[
           { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: '#F0F0FF' },
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },

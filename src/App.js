@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, Calculator, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -459,9 +459,8 @@ export default function App() {
 
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
-    { id: 'log', label: 'Feed', Icon: Milk },
-    { id: 'sleep', label: 'Sleep', Icon: Moon },
     { id: 'stats', label: 'Stats', Icon: BarChart2 },
+    { id: 'settings', label: 'Settings', Icon: Settings },
   ];
 
   // ── Home Tab ─────────────────────────────────────────────
@@ -563,7 +562,7 @@ export default function App() {
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },
           { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: '#F0F0FF' },
         ].map(({ id, label, Icon, color, bg }) => (
-          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : id === 'feed' ? setActiveTab('log') : setQuickLogModal(id)} style={{
+          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
             cursor: 'pointer', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
@@ -868,6 +867,69 @@ export default function App() {
             </p>
           </div>
         )}
+      </div>
+    </div>
+  );
+
+  // ── Settings Tab ─────────────────────────────────────────
+  const SettingsTab = () => (
+    <div style={{ padding: '32px 20px 24px' }}>
+      <h2 style={{ margin: '0 0 24px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Settings</h2>
+
+      {/* Baby info */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
+          <input type="text" placeholder="e.g. Liam" value={babyName} onChange={(e) => setBabyName(e.target.value)}
+            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }} />
+        </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
+          <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
+            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT }} />
+        </div>
+      </div>
+
+      {/* Units */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Units</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 10 }}>
+        {['ml', 'oz'].map((u) => (
+          <button key={u} onClick={() => setUnit(u)} style={{
+            flex: 1, padding: '12px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+            cursor: 'pointer', background: unit === u ? ACCENT : BG, color: unit === u ? 'white' : TEXT2,
+          }}>{u}</button>
+        ))}
+      </div>
+
+      {/* Formula calculator */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Formula Calculator</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <p style={{ margin: '0 0 14px', fontSize: 14, color: TEXT2 }}>For {convert(recommended)}{unit} of milk:</p>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          {[
+            { value: calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).scoops, label: 'Scoops' },
+            { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
+          ].map(({ value, label }) => (
+            <div key={label} style={{ background: BG, borderRadius: 12, padding: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: 30, fontWeight: 700, color: ACCENT, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
+            </div>
+          ))}
+        </div>
+        <p style={{ margin: '12px 0 0', fontSize: 12, color: TEXT2, fontStyle: 'italic' }}>Standard ratio: 1 scoop per 30ml (1oz) water</p>
+      </div>
+
+      {/* Room code */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Room</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div style={{ fontSize: 13, color: TEXT2, marginBottom: 4 }}>Share this code with your partner</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT, letterSpacing: 3 }}>{roomCode}</div>
+        </div>
+        <button onClick={() => navigator.clipboard?.writeText(roomCode)} style={{ background: '#EDEDFA', border: 'none', padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: ACCENT }}>
+          Copy
+        </button>
       </div>
     </div>
   );
@@ -1408,9 +1470,8 @@ export default function App() {
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 74 }}>
         {activeTab === 'home' && HomeTab()}
-        {activeTab === 'log' && LogTab()}
         {activeTab === 'stats' && StatsTab()}
-        {activeTab === 'sleep' && <SleepTab />}
+        {activeTab === 'settings' && SettingsTab()}
       </div>
 
       {/* Quick Log Bottom Sheet */}

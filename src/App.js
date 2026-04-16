@@ -45,7 +45,7 @@ export default function App() {
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [notifMuted, setNotifMuted] = useState(() => localStorage.getItem('notifMuted') === 'true');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
-  const [showTodayDetails, setShowTodayDetails] = useState(true);
+  const [showTodayDetails, setShowTodayDetails] = useState(false);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
   const [diapers, setDiapers] = useState([]);

@@ -559,7 +559,7 @@ export default function App() {
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },
           { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: '#F0F0FF' },
         ].map(({ id, label, Icon, color, bg }) => (
-          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
+          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : id === 'feed' ? setActiveTab('log') : setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
             cursor: 'pointer', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',

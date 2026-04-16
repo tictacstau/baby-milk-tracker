@@ -557,9 +557,9 @@ export default function App() {
         {[
           { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: '#F0F0FF' },
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: '#FFF3E0' },
-          { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: '#E8FAF0' },
+          { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: '#F0F0FF' },
         ].map(({ id, label, Icon, color, bg }) => (
-          <button key={id} onClick={() => setQuickLogModal(id)} style={{
+          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
             cursor: 'pointer', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
@@ -567,7 +567,7 @@ export default function App() {
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon size={20} color={color} />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>Log {label}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{id === 'sleep' ? (isBabyAwake ? 'Log Sleep' : 'Log Wake') : `Log ${label}`}</span>
           </button>
         ))}
       </div>

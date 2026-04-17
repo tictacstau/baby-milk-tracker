@@ -644,7 +644,7 @@ export default function App() {
 
       {showFeeds && <>
       {/* Progress ring card */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 24 }}>
+      <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 10, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 20 }}>
         <div style={{ position: 'relative', width: pSize, height: pSize, flexShrink: 0 }}>
           <svg width={pSize} height={pSize} style={{ transform: 'rotate(-90deg)' }}>
             <circle cx={pSize / 2} cy={pSize / 2} r={PR} fill="none" stroke={BORDER} strokeWidth={10} />
@@ -658,19 +658,19 @@ export default function App() {
             />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 20, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT }}>
+            <span style={{ fontSize: 18, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT }}>
               {Math.round(progressFrac * 100)}%
             </span>
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 24, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>
             {convert(todayTotal)}{unit}
           </div>
-          <div style={{ fontSize: 14, color: TEXT2, marginBottom: 10 }}>
+          <div style={{ fontSize: 13, color: TEXT2, marginBottom: 8 }}>
             of {convert(recommendedDaily)}{unit} daily goal
           </div>
-          <div style={{ fontSize: 14, color: TEXT2 }}>
+          <div style={{ fontSize: 13, color: TEXT2 }}>
             {todayFeeds.length} feed{todayFeeds.length !== 1 ? 's' : ''} today
           </div>
         </div>
@@ -678,17 +678,17 @@ export default function App() {
 
       {/* Feed stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-        <div style={{ background: CARD, borderRadius: 14, padding: '18px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>
             {todayFeeds.length > 0 ? `${convert(Math.round(todayTotal / todayFeeds.length))}${unit}` : '—'}
           </div>
-          <div style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Avg per feed</div>
+          <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500 }}>Avg per feed</div>
         </div>
-        <div style={{ background: CARD, borderRadius: 14, padding: '18px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-          <div style={{ fontSize: 24, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 20, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 3 }}>
             {progressFrac >= 1 ? '✓ Done' : `${convert(Math.max(recommendedDaily - todayTotal, 0))}${unit}`}
           </div>
-          <div style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Remaining</div>
+          <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500 }}>Remaining</div>
         </div>
       </div>
 
@@ -729,16 +729,16 @@ export default function App() {
       {showSleep && <>
       {/* Sleep stats grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length}</div>
+        <div style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>{todayWW.length}</div>
           <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Wake windows</div>
         </div>
-        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
+        <div style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
           <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Total awake</div>
         </div>
-        <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-          <div style={{ fontSize: 22, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 4 }}>
+        <div style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+          <div style={{ fontSize: 18, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5, marginBottom: 3 }}>
             {todayWW.length > 0 ? formatDuration(avgAwakeMs) : '—'}
           </div>
           <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Avg window</div>
@@ -797,8 +797,8 @@ export default function App() {
           { value: todayD.length > 0 ? wetCount : '—', label: 'Wet' },
           { value: todayD.length > 0 ? dirtyCount : '—', label: 'Dirty' },
         ].map(({ value, label }) => (
-          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>{value}</div>
             <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
           </div>
         ))}
@@ -841,8 +841,8 @@ export default function App() {
           { value: todayP.length > 0 ? `${convert(pumpTotal)}${unit}` : '—', label: 'Total' },
           { value: todayP.length > 0 ? `${convert(avgPump)}${unit}` : '—', label: 'Avg' },
         ].map(({ value, label }) => (
-          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+          <div key={label} style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 3 }}>{value}</div>
             <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
           </div>
         ))}
@@ -912,20 +912,7 @@ export default function App() {
 
         return (
           <>
-            <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: showPreviousDays ? 12 : 0, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-              <button onClick={() => setShowPreviousDays(p => !p)} style={{
-                width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <BarChart2 size={20} color={ACCENT} />
-                  <span style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>Previous Days</span>
-                </div>
-                <span style={{ fontSize: 22, color: TEXT2, lineHeight: 1, fontWeight: 300 }}>
-                  {showPreviousDays ? '−' : '+'}
-                </span>
-              </button>
-            </div>
+            <SectionHeader label="Previous Days" show={showPreviousDays} onToggle={() => setShowPreviousDays(p => !p)} Icon={BarChart2} iconColor={ACCENT} iconBg={ACCENT_BG} />
             {showPreviousDays && allPastKeys.map((dateKey) => {
               const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);
               const dayWW = wwByDay[dateKey] || [];

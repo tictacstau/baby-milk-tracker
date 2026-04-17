@@ -47,7 +47,6 @@ export default function App() {
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
   const [pumpAmount, setPumpAmount] = useState('');
   const [showCalculator, setShowCalculator] = useState(false);
-  const [showTimeline, setShowTimeline] = useState(true);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
 
@@ -744,122 +743,14 @@ export default function App() {
         <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
         <button
           onClick={() => {
-            const allOpen = showTimeline && showFeeds && showSleep && showDiapers && showPumping;
-            setShowTimeline(!allOpen); setShowFeeds(!allOpen); setShowSleep(!allOpen); setShowDiapers(!allOpen); setShowPumping(!allOpen);
+            const allOpen = showFeeds && showSleep && showDiapers && showPumping;
+            setShowFeeds(!allOpen); setShowSleep(!allOpen); setShowDiapers(!allOpen); setShowPumping(!allOpen);
           }}
           style={{ background: 'none', border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '5px 14px', fontSize: 12, fontWeight: 600, color: TEXT2, cursor: 'pointer' }}
         >
-          {showTimeline && showFeeds && showSleep && showDiapers && showPumping ? 'Collapse All' : 'Expand All'}
+          {showFeeds && showSleep && showDiapers && showPumping ? 'Collapse All' : 'Expand All'}
         </button>
       </div>
-
-      {/* ── Timeline section ── */}
-      <SectionHeader label="Timeline" show={showTimeline} onToggle={() => setShowTimeline(v => !v)} />
-      {showTimeline && (() => {
-        const now = new Date();
-        const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
-        const totalMs = Math.max(now - midnight, 1);
-        const pct = (ts) => Math.max(0, Math.min(100, ((new Date(ts) - midnight) / totalMs) * 100));
-
-        const hourLabels = [];
-        for (let h = 0; h < 24; h += 3) {
-          if (h * 3600000 <= totalMs) {
-            const p = (h * 3600000 / totalMs) * 100;
-            const label = h === 0 ? '12a' : h < 12 ? `${h}a` : h === 12 ? '12p' : `${h - 12}p`;
-            hourLabels.push({ p, label });
-          }
-        }
-
-        const todayDiaps = getTodayDiapers();
-        const todayPumped = getTodayPumps();
-        const todayWWs = wakeWindows.filter(w => new Date(w.end) >= midnight);
-
-        const LPAD = 58;
-        const tracks = [
-          {
-            label: 'Feeds', color: ACCENT,
-            items: todayFeeds.map(f => ({ type: 'dot', ts: f.timestamp })),
-          },
-          {
-            label: 'Awake', color: AMBER,
-            items: [
-              ...todayWWs.map(w => ({ type: 'bar', start: w.start, end: w.end, opacity: 0.85 })),
-              ...(isBabyAwake && wakeStartTime && new Date(wakeStartTime) >= midnight
-                ? [{ type: 'bar', start: wakeStartTime, end: now, opacity: 0.4 }]
-                : []),
-            ],
-          },
-          {
-            label: 'Diapers', color: RED,
-            items: todayDiaps.map(d => ({ type: 'dot', ts: d.timestamp })),
-          },
-          {
-            label: 'Pump', color: GREEN,
-            items: todayPumped.map(p => ({ type: 'dot', ts: p.timestamp })),
-          },
-        ];
-
-        const hasAnyData = todayFeeds.length > 0 || todayDiaps.length > 0 || todayPumped.length > 0 || todayWWs.length > 0 || isBabyAwake;
-
-        return (
-          <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            {!hasAnyData ? (
-              <p style={{ margin: 0, fontSize: 14, color: TEXT2, textAlign: 'center' }}>No events logged today yet.</p>
-            ) : (
-              <>
-                {tracks.map(({ label, color, items }) => (
-                  <div key={label} style={{ display: 'flex', alignItems: 'center', marginBottom: 10 }}>
-                    <span style={{ fontSize: 10, fontWeight: 600, color: TEXT2, width: LPAD, flexShrink: 0, textTransform: 'uppercase', letterSpacing: 0.4 }}>{label}</span>
-                    <div style={{ flex: 1, height: 20, position: 'relative', background: BG, borderRadius: 10 }}>
-                      {items.map((item, i) => item.type === 'dot' ? (
-                        <div key={i} style={{
-                          position: 'absolute', top: '50%', transform: 'translate(-50%, -50%)',
-                          left: `${pct(item.ts)}%`,
-                          width: 10, height: 10, borderRadius: '50%',
-                          background: color, border: `2px solid ${CARD}`,
-                          boxShadow: '0 1px 3px rgba(0,0,0,0.18)', zIndex: 1,
-                        }} />
-                      ) : (
-                        <div key={i} style={{
-                          position: 'absolute', top: '15%', height: '70%',
-                          left: `${pct(item.start)}%`,
-                          width: `${Math.max(pct(item.end || now) - pct(item.start), 1)}%`,
-                          background: color, opacity: item.opacity, borderRadius: 5,
-                        }} />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-                {/* Hour axis */}
-                <div style={{ display: 'flex', paddingLeft: LPAD, marginTop: 4 }}>
-                  <div style={{ flex: 1, position: 'relative', height: 14 }}>
-                    {hourLabels.map(({ p, label }) => (
-                      <span key={label} style={{
-                        position: 'absolute', left: `${p}%`, transform: 'translateX(-50%)',
-                        fontSize: 9, color: TEXT2, fontWeight: 500,
-                      }}>{label}</span>
-                    ))}
-                  </div>
-                </div>
-                {/* Legend */}
-                <div style={{ display: 'flex', gap: 14, marginTop: 12, paddingLeft: LPAD, flexWrap: 'wrap' }}>
-                  {[
-                    { color: ACCENT, label: 'Feed' },
-                    { color: AMBER, label: 'Awake' },
-                    { color: RED, label: 'Diaper' },
-                    { color: GREEN, label: 'Pump' },
-                  ].map(({ color, label }) => (
-                    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: color }} />
-                      <span style={{ fontSize: 10, color: TEXT2, fontWeight: 500 }}>{label}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        );
-      })()}
 
       {/* ── Feeds section ── */}
       <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />

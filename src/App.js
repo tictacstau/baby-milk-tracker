@@ -35,7 +35,7 @@ export default function App() {
   const [notifPermission, setNotifPermission] = useState(notifSupported ? Notification.permission : 'unsupported');
   const [notifMuted, setNotifMuted] = useState(() => localStorage.getItem('notifMuted') === 'true');
   const [showBellTooltip, setShowBellTooltip] = useState(false);
-  const [showTodayDetails, setShowTodayDetails] = useState(false);
+
   const [showFeeds, setShowFeeds] = useState(false);
   const [showSleep, setShowSleep] = useState(false);
   const [showDiapers, setShowDiapers] = useState(false);
@@ -620,7 +620,7 @@ export default function App() {
     return (
     <div style={{ padding: '32px 20px 24px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Today's Stats</h2>
+        <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{babyName ? `${babyName}'s Summary` : 'Summary'}</h2>
         <button
           onClick={() => {
             const allOpen = showFeeds && showSleep && showDiapers && showPumping;
@@ -631,49 +631,6 @@ export default function App() {
           {showFeeds && showSleep && showDiapers && showPumping ? 'Collapse All' : 'Expand All'}
         </button>
       </div>
-
-      {/* ── Today section ── */}
-      <SectionHeader label="Today" show={showTodayDetails} onToggle={() => setShowTodayDetails(v => !v)} />
-
-      {showTodayDetails && <>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-          {[
-            { value: todayFeeds.length, label: 'Feeds' },
-            { value: `${convert(todayTotal)}${unit}`, label: 'Intake' },
-            { value: `${Math.round(progressFrac * 100)}%`, label: 'Goal', color: progressFrac >= 1 ? GREEN : TEXT },
-          ].map(({ value, label, color }) => (
-            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: color || TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
-          {[
-            { value: todayWW.length, label: 'Wake windows' },
-            { value: todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—', label: 'Awake' },
-            { value: todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—', label: 'On track', color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT },
-          ].map(({ value, label, color }) => (
-            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-              <div style={{ fontSize: 22, fontWeight: 700, color: color || TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
-          {[
-            { value: todayD.length, label: 'Diapers' },
-            { value: todayD.length > 0 ? wetCount : '—', label: 'Wet' },
-            { value: todayD.length > 0 ? dirtyCount : '—', label: 'Dirty' },
-            { value: todayP.length, label: 'Pumps' },
-          ].map(({ value, label }) => (
-            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
-              <div style={{ fontSize: 10, color: TEXT2, fontWeight: 500 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      </>}
 
       {/* ── Feeds section ── */}
       <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />

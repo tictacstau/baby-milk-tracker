@@ -1262,7 +1262,7 @@ export default function App() {
           onClick={() => setQuickLogModal(null)}
         >
           <div
-            style={{ background: CARD, borderRadius: '20px 20px 0 0', padding: '16px 20px 40px', maxWidth: 430, width: '100%', margin: '0 auto' }}
+            style={{ background: CARD, borderRadius: '20px 20px 0 0', padding: '16px 20px 40px', maxWidth: 430, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}

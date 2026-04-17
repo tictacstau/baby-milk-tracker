@@ -132,7 +132,7 @@ export default function App() {
       }
       if (d.settings) {
         setUnit(d.settings.unit || 'ml');
-        setBabyAge(d.settings.babyAge || 2);
+        setBabyAge(d.settings.babyAge != null ? d.settings.babyAge : 2);
         setBabyName(d.settings.babyName || '');
       }
       if (d.diapers) setDiapers(d.diapers);
@@ -148,7 +148,7 @@ export default function App() {
 
   // Save settings
   useEffect(() => {
-    if (!roomCode) return;
+    if (!roomCode || babyAge === 0 || babyAge === '') return;
     syncRoom(roomCode, { settings: { unit, babyAge, babyName } });
   }, [unit, babyAge, babyName, roomCode]);
 

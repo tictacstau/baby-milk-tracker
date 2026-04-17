@@ -377,7 +377,7 @@ export default function App() {
 
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
-    { id: 'stats', label: 'Stats', Icon: BarChart2 },
+    { id: 'stats', label: 'Summary', Icon: BarChart2 },
     { id: 'settings', label: 'Settings', Icon: Settings },
   ];
 

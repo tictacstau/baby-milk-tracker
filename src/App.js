@@ -42,6 +42,7 @@ export default function App() {
   const [showPumping, setShowPumping] = useState(false);
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
+  const settingsLoaded = useRef(false);
   const [diapers, setDiapers] = useState([]);
   const [pumps, setPumps] = useState([]);
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
@@ -134,6 +135,7 @@ export default function App() {
         setUnit(d.settings.unit || 'ml');
         setBabyAge(d.settings.babyAge != null ? d.settings.babyAge : 2);
         setBabyName(d.settings.babyName || '');
+        settingsLoaded.current = true;
       }
       if (d.diapers) setDiapers(d.diapers);
       if (d.pumps) setPumps(d.pumps);
@@ -148,7 +150,7 @@ export default function App() {
 
   // Save settings
   useEffect(() => {
-    if (!roomCode || babyAge === 0 || babyAge === '') return;
+    if (!roomCode || !settingsLoaded.current || babyAge === 0 || babyAge === '') return;
     syncRoom(roomCode, { settings: { unit, babyAge, babyName } });
   }, [unit, babyAge, babyName, roomCode]);
 

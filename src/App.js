@@ -458,10 +458,10 @@ export default function App() {
             position: 'absolute', inset: 0,
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
           }}>
-            <span style={{ fontSize: elapsedFrac >= 1 ? 28 : 38, fontWeight: 700, color: timerColor, letterSpacing: -1, lineHeight: 1 }}>
+            <span style={{ fontSize: elapsedFrac >= 1 ? 28 : timeUntilFeed === 'Log first feed' ? 22 : 38, fontWeight: 700, color: timerColor, letterSpacing: -1, lineHeight: 1, textAlign: 'center', padding: '0 16px' }}>
               {timeUntilFeed}
             </span>
-            <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500, marginTop: 6 }}>until next feed</span>
+            {timeUntilFeed !== 'Log first feed' && <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500, marginTop: 6 }}>until next feed</span>}
           </div>
         </div>
 

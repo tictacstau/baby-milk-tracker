@@ -611,9 +611,9 @@ export default function App() {
 
 
     const SectionHeader = ({ label, show, onToggle }) => (
-      <button onClick={onToggle} style={{ background: 'none', border: 'none', padding: '0 0 10px', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>{label}</span>
-        {show ? <ChevronUp size={16} color={TEXT2} /> : <ChevronDown size={16} color={TEXT2} />}
+      <button onClick={onToggle} style={{ background: 'none', border: 'none', padding: '12px 0', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: -0.2 }}>{label}</span>
+        {show ? <ChevronUp size={22} color={TEXT2} /> : <ChevronDown size={22} color={TEXT2} />}
       </button>
     );
 

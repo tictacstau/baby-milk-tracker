@@ -610,11 +610,18 @@ export default function App() {
     const avgPump = todayP.length > 0 ? Math.round(pumpTotal / todayP.length) : 0;
 
 
-    const SectionHeader = ({ label, show, onToggle }) => (
-      <button onClick={onToggle} style={{ background: 'none', border: 'none', padding: '12px 0', cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span style={{ fontSize: 16, fontWeight: 700, color: TEXT, letterSpacing: -0.2 }}>{label}</span>
-        {show ? <ChevronUp size={22} color={TEXT2} /> : <ChevronDown size={22} color={TEXT2} />}
-      </button>
+    const SectionHeader = ({ label, show, onToggle, Icon, iconColor, iconBg }) => (
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: show ? 12 : 16, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <button onClick={onToggle} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: '50%', background: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <Icon size={20} color={iconColor} />
+            </div>
+            <span style={{ fontSize: 16, fontWeight: 600, color: TEXT }}>{label}</span>
+          </div>
+          {show ? <ChevronUp size={22} color={TEXT2} /> : <ChevronDown size={22} color={TEXT2} />}
+        </button>
+      </div>
     );
 
     return (
@@ -633,7 +640,7 @@ export default function App() {
       </div>
 
       {/* ── Feeds section ── */}
-      <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />
+      <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} Icon={Milk} iconColor={ACCENT} iconBg={FEED_BG} />
 
       {showFeeds && <>
       {/* Progress ring card */}
@@ -717,7 +724,7 @@ export default function App() {
       </>}
 
       {/* ── Sleep section ── */}
-      <SectionHeader label="Sleep" show={showSleep} onToggle={() => setShowSleep(v => !v)} />
+      <SectionHeader label="Sleep" show={showSleep} onToggle={() => setShowSleep(v => !v)} Icon={Moon} iconColor={ACCENT} iconBg={FEED_BG} />
 
       {showSleep && <>
       {/* Sleep stats grid */}
@@ -781,7 +788,7 @@ export default function App() {
       </>}
 
       {/* ── Diapers section ── */}
-      <SectionHeader label="Diapers" show={showDiapers} onToggle={() => setShowDiapers(v => !v)} />
+      <SectionHeader label="Diapers" show={showDiapers} onToggle={() => setShowDiapers(v => !v)} Icon={Wind} iconColor={AMBER} iconBg={DIAPER_BG} />
 
       {showDiapers && <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
@@ -825,7 +832,7 @@ export default function App() {
       </>}
 
       {/* ── Pumping section ── */}
-      <SectionHeader label="Pumping" show={showPumping} onToggle={() => setShowPumping(v => !v)} />
+      <SectionHeader label="Pumping" show={showPumping} onToggle={() => setShowPumping(v => !v)} Icon={Activity} iconColor={GREEN} iconBg={PUMP_BG} />
 
       {showPumping && <>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>

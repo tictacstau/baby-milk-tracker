@@ -632,85 +632,48 @@ export default function App() {
         </button>
       </div>
 
-      {/* Today summary card */}
-      <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', boxSizing: 'border-box' }}>
-        <button onClick={() => setShowTodayDetails(v => !v)} style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: showTodayDetails ? 14 : 0 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Today</span>
-          {showTodayDetails ? <ChevronUp size={16} color={TEXT2} /> : <ChevronDown size={16} color={TEXT2} />}
-        </button>
-        {showTodayDetails && <>
-          {/* Feed row */}
-          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Feeds</p>
-          <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: 18 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayFeeds.length}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Count</div>
+      {/* ── Today section ── */}
+      <SectionHeader label="Today" show={showTodayDetails} onToggle={() => setShowTodayDetails(v => !v)} />
+
+      {showTodayDetails && <>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+          {[
+            { value: todayFeeds.length, label: 'Feeds' },
+            { value: `${convert(todayTotal)}${unit}`, label: 'Intake' },
+            { value: `${Math.round(progressFrac * 100)}%`, label: 'Goal', color: progressFrac >= 1 ? GREEN : TEXT },
+          ].map(({ value, label, color }) => (
+            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: color || TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
             </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{convert(todayTotal)}{unit}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+          {[
+            { value: todayWW.length, label: 'Wake windows' },
+            { value: todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—', label: 'Awake' },
+            { value: todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—', label: 'On track', color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT },
+          ].map(({ value, label, color }) => (
+            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+              <div style={{ fontSize: 22, fontWeight: 700, color: color || TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
             </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: progressFrac >= 1 ? GREEN : TEXT, letterSpacing: -0.5 }}>{Math.round(progressFrac * 100)}%</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Goal</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 24 }}>
+          {[
+            { value: todayD.length, label: 'Diapers' },
+            { value: todayD.length > 0 ? wetCount : '—', label: 'Wet' },
+            { value: todayD.length > 0 ? dirtyCount : '—', label: 'Dirty' },
+            { value: todayP.length, label: 'Pumps' },
+          ].map(({ value, label }) => (
+            <div key={label} style={{ background: CARD, borderRadius: 14, padding: '14px 8px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: TEXT, letterSpacing: -0.5, marginBottom: 4 }}>{value}</div>
+              <div style={{ fontSize: 10, color: TEXT2, fontWeight: 500 }}>{label}</div>
             </div>
-          </div>
-          <div style={{ height: 1, background: BORDER, marginBottom: 14 }} />
-          {/* Sleep row */}
-          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Sleep</p>
-          <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Windows</div>
-            </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayWW.length > 0 ? formatDuration(totalAwakeMs) : '—'}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Awake</div>
-            </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: todayWW.length > 0 && wwOnTrack === todayWW.length ? GREEN : TEXT, letterSpacing: -0.5 }}>{todayWW.length > 0 ? `${wwOnTrack}/${todayWW.length}` : '—'}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>On track</div>
-            </div>
-          </div>
-          <div style={{ height: 1, background: BORDER, margin: '14px 0' }} />
-          {/* Diaper row */}
-          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Diapers</p>
-          <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayD.length}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
-            </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayD.length > 0 ? wetCount : '—'}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Wet</div>
-            </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayD.length > 0 ? dirtyCount : '—'}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Dirty</div>
-            </div>
-          </div>
-          <div style={{ height: 1, background: BORDER, margin: '14px 0' }} />
-          {/* Pump row */}
-          <p style={{ margin: '0 0 10px', fontSize: 11, fontWeight: 600, color: TEXT2, letterSpacing: 0.4 }}>Pumping</p>
-          <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayP.length}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Sessions</div>
-            </div>
-            <div style={{ width: 1, background: BORDER }} />
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{todayP.length > 0 ? `${convert(pumpTotal)}${unit}` : '—'}</div>
-              <div style={{ fontSize: 12, color: TEXT2, fontWeight: 500, marginTop: 2 }}>Total</div>
-            </div>
-          </div>
-        </>}
-      </div>
+          ))}
+        </div>
+      </>}
 
       {/* ── Feeds section ── */}
       <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} />

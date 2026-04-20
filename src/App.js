@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -45,8 +45,15 @@ export default function App() {
   const settingsLoaded = useRef(false);
   const [diapers, setDiapers] = useState([]);
   const [pumps, setPumps] = useState([]);
-  const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump'
+  const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump' | 'weight' | 'medicine'
   const [pumpAmount, setPumpAmount] = useState('');
+  const [weights, setWeights] = useState([]);
+  const [medicines, setMedicines] = useState([]);
+  const [weightInput, setWeightInput] = useState('');
+  const [medicineName, setMedicineName] = useState('');
+  const [medicineDose, setMedicineDose] = useState('');
+  const [showWeights, setShowWeights] = useState(false);
+  const [showMedicines, setShowMedicines] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
@@ -67,6 +74,10 @@ export default function App() {
   const PUMP_BG = isDark ? 'rgba(52,199,89,0.15)' : '#E8FAF0';
   const WAKE_BG = isDark ? 'rgba(255,149,0,0.12)' : '#FFF8EC';
   const OVER_BG = isDark ? 'rgba(255,59,48,0.15)' : '#FFF0EE';
+  const WEIGHT_COLOR = '#30B0C7';
+  const MED_COLOR = '#FF2D55';
+  const WEIGHT_BG = isDark ? 'rgba(48,176,199,0.15)' : '#E0F7FA';
+  const MED_BG = isDark ? 'rgba(255,45,85,0.15)' : '#FFF0F3';
 
   // Firestore sync helper
   const syncRoom = (code, data) => {
@@ -82,7 +93,7 @@ export default function App() {
     try {
       const code = generateCode();
       const initial = {
-        feeds, diapers, pumps, wakeWindows,
+        feeds, diapers, pumps, weights, medicines, wakeWindows,
         wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
         settings: { unit, babyAge, babyName },
       };
@@ -139,6 +150,8 @@ export default function App() {
       }
       if (d.diapers) setDiapers(d.diapers);
       if (d.pumps) setPumps(d.pumps);
+      if (d.weights) setWeights(d.weights);
+      if (d.medicines) setMedicines(d.medicines);
       if (d.wakeWindows) setWakeWindows(d.wakeWindows);
       if (d.wakeState) {
         setIsBabyAwake(d.wakeState.awake);
@@ -324,6 +337,34 @@ export default function App() {
     setQuickLogModal(null);
   };
 
+  const getTodayWeights = () => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return weights.filter(w => new Date(w.timestamp) >= today);
+  };
+
+  const getTodayMedicines = () => {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    return medicines.filter(m => new Date(m.timestamp) >= today);
+  };
+
+  const logWeight = (grams) => {
+    const entry = { timestamp: new Date().toISOString(), grams };
+    const updated = [...weights, entry];
+    setWeights(updated);
+    syncRoom(roomCode, { weights: updated });
+    setWeightInput('');
+    setQuickLogModal(null);
+  };
+
+  const logMedicine = (name, dose) => {
+    const entry = { timestamp: new Date().toISOString(), name, dose };
+    const updated = [...medicines, entry];
+    setMedicines(updated);
+    syncRoom(roomCode, { medicines: updated });
+    setMedicineName(''); setMedicineDose('');
+    setQuickLogModal(null);
+  };
+
   const todayFeeds = getTodayFeeds();
   const todayTotal = todayFeeds.reduce((sum, f) => sum + f.amount, 0);
   const recommended = getRecommendedAmount();
@@ -481,6 +522,8 @@ export default function App() {
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: DIAPER_BG },
           { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: FEED_BG },
           { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: PUMP_BG },
+          { id: 'weight', label: 'Weight', Icon: Scale, color: WEIGHT_COLOR, bg: WEIGHT_BG },
+          { id: 'medicine', label: 'Medicine', Icon: Pill, color: MED_COLOR, bg: MED_BG },
         ].map(({ id, label, Icon, color, bg }) => (
           <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
@@ -632,12 +675,12 @@ export default function App() {
         <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>{babyName ? `${babyName}'s Summary` : 'Summary'}</h2>
         <button
           onClick={() => {
-            const allOpen = showFeeds && showSleep && showDiapers && showPumping;
-            setShowFeeds(!allOpen); setShowSleep(!allOpen); setShowDiapers(!allOpen); setShowPumping(!allOpen);
+            const allOpen = showFeeds && showSleep && showDiapers && showPumping && showWeights && showMedicines;
+            setShowFeeds(!allOpen); setShowSleep(!allOpen); setShowDiapers(!allOpen); setShowPumping(!allOpen); setShowWeights(!allOpen); setShowMedicines(!allOpen);
           }}
           style={{ background: 'none', border: `1.5px solid ${BORDER}`, borderRadius: 20, padding: '5px 14px', fontSize: 12, fontWeight: 600, color: TEXT2, cursor: 'pointer' }}
         >
-          {showFeeds && showSleep && showDiapers && showPumping ? 'Collapse All' : 'Expand All'}
+          {showFeeds && showSleep && showDiapers && showPumping && showWeights && showMedicines ? 'Collapse All' : 'Expand All'}
         </button>
       </div>
 
@@ -914,6 +957,92 @@ export default function App() {
 
         return (
           <>
+      {/* ── Weight section ── */}
+      <SectionHeader label="Weight" show={showWeights} onToggle={() => setShowWeights(v => !v)} Icon={Scale} iconColor={WEIGHT_COLOR} iconBg={WEIGHT_BG} />
+
+      {showWeights && (() => {
+        const todayW = getTodayWeights();
+        const latestWeight = weights.length > 0 ? weights[weights.length - 1] : null;
+        return (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              {[
+                { value: todayW.length > 0 ? `${todayW[todayW.length - 1].grams}g` : '—', label: "Today's weight" },
+                { value: latestWeight ? `${latestWeight.grams}g` : '—', label: 'Last recorded' },
+              ].map(({ value, label }) => (
+                <div key={label} style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: WEIGHT_COLOR, letterSpacing: -0.5, marginBottom: 3 }}>{value}</div>
+                  <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            {todayW.length > 0 ? (
+              <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                {[...todayW].reverse().map((w, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < todayW.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: WEIGHT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Scale size={16} color={WEIGHT_COLOR} />
+                      </div>
+                      <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>{new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                    </div>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: WEIGHT_COLOR }}>{w.grams}g</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No weight logged today yet.</p>
+              </div>
+            )}
+          </>
+        );
+      })()}
+
+      {/* ── Medicine section ── */}
+      <SectionHeader label="Medicine" show={showMedicines} onToggle={() => setShowMedicines(v => !v)} Icon={Pill} iconColor={MED_COLOR} iconBg={MED_BG} />
+
+      {showMedicines && (() => {
+        const todayM = getTodayMedicines();
+        return (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+              {[
+                { value: todayM.length || '—', label: 'Doses today' },
+                { value: medicines.length || '—', label: 'Total logged' },
+              ].map(({ value, label }) => (
+                <div key={label} style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, fontWeight: 700, color: MED_COLOR, letterSpacing: -0.5, marginBottom: 3 }}>{value}</div>
+                  <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            {todayM.length > 0 ? (
+              <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                {[...todayM].reverse().map((m, idx) => (
+                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 0', borderBottom: idx < todayM.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', background: MED_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Pill size={16} color={MED_COLOR} />
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>{m.name}</div>
+                        {m.dose && <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{m.dose}</div>}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>{new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', marginBottom: 24, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No medicine logged today yet.</p>
+              </div>
+            )}
+          </>
+        );
+      })()}
+
             <SectionHeader label="Previous Days" show={showPreviousDays} onToggle={() => setShowPreviousDays(p => !p)} Icon={BarChart2} iconColor={ACCENT} iconBg={ACCENT_BG} />
             {showPreviousDays && allPastKeys.map((dateKey) => {
               const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);
@@ -1247,6 +1376,61 @@ export default function App() {
                       padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
                       cursor: pumpAmount ? 'pointer' : 'not-allowed',
                       background: pumpAmount ? ACCENT : BORDER, color: 'white', opacity: pumpAmount ? 1 : 0.55,
+                    }}
+                  >Log</button>
+                </div>
+              </>
+            )}
+
+            {quickLogModal === 'weight' && (
+              <>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log Weight</h3>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="number"
+                    placeholder="Weight (g)"
+                    value={weightInput}
+                    onChange={(e) => setWeightInput(e.target.value)}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
+                  />
+                  <button
+                    onClick={() => { if (weightInput) logWeight(parseFloat(weightInput)); }}
+                    disabled={!weightInput}
+                    style={{
+                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                      cursor: weightInput ? 'pointer' : 'not-allowed',
+                      background: weightInput ? WEIGHT_COLOR : BORDER, color: 'white', opacity: weightInput ? 1 : 0.55,
+                    }}
+                  >Log</button>
+                </div>
+              </>
+            )}
+
+            {quickLogModal === 'medicine' && (
+              <>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log Medicine</h3>
+                <input
+                  type="text"
+                  placeholder="Medicine name (e.g. Vitamin D)"
+                  value={medicineName}
+                  onChange={(e) => setMedicineName(e.target.value)}
+                  style={{ width: '100%', padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD, marginBottom: 10, boxSizing: 'border-box' }}
+                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="Dose (optional, e.g. 1 drop)"
+                    value={medicineDose}
+                    onChange={(e) => setMedicineDose(e.target.value)}
+                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
+                  />
+                  <button
+                    onClick={() => { if (medicineName) logMedicine(medicineName.trim(), medicineDose.trim()); }}
+                    disabled={!medicineName}
+                    style={{
+                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                      cursor: medicineName ? 'pointer' : 'not-allowed',
+                      background: medicineName ? MED_COLOR : BORDER, color: 'white', opacity: medicineName ? 1 : 0.55,
                     }}
                   >Log</button>
                 </div>

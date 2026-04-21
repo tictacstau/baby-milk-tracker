@@ -1049,44 +1049,6 @@ export default function App() {
       )}
       </>}
 
-      {/* Past days */}
-      {(() => {
-        const todayKey = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-
-        // Group wake windows by day
-        const wwByDay = {};
-        wakeWindows.forEach((w) => {
-          const key = new Date(w.start).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-          if (!wwByDay[key]) wwByDay[key] = [];
-          wwByDay[key].push(w);
-        });
-
-        // Group diapers by day
-        const dByDay = {};
-        diapers.forEach((d) => {
-          const key = new Date(d.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-          if (!dByDay[key]) dByDay[key] = [];
-          dByDay[key].push(d);
-        });
-
-        // Group pumps by day
-        const pByDay = {};
-        pumps.forEach((p) => {
-          const key = new Date(p.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
-          if (!pByDay[key]) pByDay[key] = [];
-          pByDay[key].push(p);
-        });
-
-        // Merge all past dates
-        const feedDays = getFeedsByDay().map(([k]) => k);
-        const allPastKeys = [...new Set([...feedDays, ...Object.keys(wwByDay), ...Object.keys(dByDay), ...Object.keys(pByDay)])]
-          .filter(k => k !== todayKey)
-          .sort((a, b) => new Date(b) - new Date(a));
-
-        if (allPastKeys.length === 0) return null;
-
-        return (
-          <>
       {/* ── Weight section ── */}
       <SectionHeader label="Weight" show={showWeights} onToggle={() => setShowWeights(v => !v)} Icon={Scale} iconColor={WEIGHT_COLOR} iconBg={WEIGHT_BG} />
 
@@ -1173,6 +1135,44 @@ export default function App() {
         );
       })()}
 
+      {/* Past days */}
+      {(() => {
+        const todayKey = new Date().toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+        // Group wake windows by day
+        const wwByDay = {};
+        wakeWindows.forEach((w) => {
+          const key = new Date(w.start).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!wwByDay[key]) wwByDay[key] = [];
+          wwByDay[key].push(w);
+        });
+
+        // Group diapers by day
+        const dByDay = {};
+        diapers.forEach((d) => {
+          const key = new Date(d.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!dByDay[key]) dByDay[key] = [];
+          dByDay[key].push(d);
+        });
+
+        // Group pumps by day
+        const pByDay = {};
+        pumps.forEach((p) => {
+          const key = new Date(p.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' });
+          if (!pByDay[key]) pByDay[key] = [];
+          pByDay[key].push(p);
+        });
+
+        // Merge all past dates
+        const feedDays = getFeedsByDay().map(([k]) => k);
+        const allPastKeys = [...new Set([...feedDays, ...Object.keys(wwByDay), ...Object.keys(dByDay), ...Object.keys(pByDay)])]
+          .filter(k => k !== todayKey)
+          .sort((a, b) => new Date(b) - new Date(a));
+
+        if (allPastKeys.length === 0) return null;
+
+        return (
+          <>
             <SectionHeader label="Previous Days" show={showPreviousDays} onToggle={() => setShowPreviousDays(p => !p)} Icon={BarChart2} iconColor={ACCENT} iconBg={ACCENT_BG} />
             {showPreviousDays && allPastKeys.map((dateKey) => {
               const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);

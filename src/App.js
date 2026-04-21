@@ -64,6 +64,8 @@ export default function App() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'system');
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
+  const [splashVisible, setSplashVisible] = useState(true);
+  const [splashFading, setSplashFading] = useState(false);
 
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
   const ACCENT = '#5856D6';
@@ -169,6 +171,13 @@ export default function App() {
     });
     return () => unsub();
   }, [roomCode]);
+
+  // Splash screen auto-dismiss
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => setSplashFading(true), 1800);
+    const hideTimer = setTimeout(() => setSplashVisible(false), 2350);
+    return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
+  }, []);
 
   // Save settings
   useEffect(() => {
@@ -1337,6 +1346,45 @@ export default function App() {
     </div>
     );
   };
+
+  if (splashVisible) return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9999,
+      background: '#5856D6',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      opacity: splashFading ? 0 : 1,
+      transition: 'opacity 0.55s ease',
+    }}>
+      <style>{`
+        @keyframes splashPop {
+          0%   { opacity: 0; transform: scale(0.82); }
+          60%  { opacity: 1; transform: scale(1.04); }
+          100% { opacity: 1; transform: scale(1); }
+        }
+        .splash-inner { animation: splashPop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+        @keyframes splashTagline {
+          0%   { opacity: 0; transform: translateY(10px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
+        .splash-tagline { opacity: 0; animation: splashTagline 0.4s ease 0.45s forwards; }
+      `}</style>
+      <div className="splash-inner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{
+          width: 96, height: 96, borderRadius: 24,
+          background: 'rgba(255,255,255,0.18)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          marginBottom: 24,
+          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+        }}>
+          <img src="/favicon.svg" alt="TeamBaby" style={{ width: 60, height: 60 }} />
+        </div>
+        <div style={{ fontSize: 34, fontWeight: 800, color: '#FFFFFF', letterSpacing: -1, marginBottom: 8 }}>TeamBaby</div>
+      </div>
+      <div className="splash-tagline" style={{ fontSize: 15, color: 'rgba(255,255,255,0.75)', fontWeight: 500, letterSpacing: 0.2 }}>
+        Track. Feed. Thrive.
+      </div>
+    </div>
+  );
 
   if (!roomCode) return (
     <div style={{ maxWidth: 430, margin: '0 auto', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 24px', background: BG }}>

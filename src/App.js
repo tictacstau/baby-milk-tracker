@@ -57,6 +57,8 @@ export default function App() {
   const [medicineName, setMedicineName] = useState('');
   const [medicineDose, setMedicineDose] = useState('');
   const [logTime, setLogTime] = useState('');
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [fromCache, setFromCache] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
   const [showMedicines, setShowMedicines] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -162,6 +164,8 @@ export default function App() {
         setIsBabyAwake(d.wakeState.awake);
         setWakeStartTime(d.wakeState.startTime ? new Date(d.wakeState.startTime) : null);
       }
+      localStorage.setItem('teambaby_cache', JSON.stringify(d));
+      setFromCache(false);
     });
     return () => unsub();
   }, [roomCode]);
@@ -212,6 +216,44 @@ export default function App() {
     const handler = (e) => { e.preventDefault(); deferredInstallPrompt.current = e; setInstallable(true); };
     window.addEventListener('beforeinstallprompt', handler);
     return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
+  // Load cached Firestore data on mount (before Firebase arrives)
+  useEffect(() => {
+    const raw = localStorage.getItem('teambaby_cache');
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw);
+      if (d.feeds) {
+        setFeeds(d.feeds);
+        const last = d.feeds[d.feeds.length - 1];
+        if (last) { const t = new Date(last.timestamp); t.setHours(t.getHours() + 3); setNextFeedTime(t); }
+      }
+      if (d.settings) {
+        setUnit(d.settings.unit || 'ml');
+        setBabyAge(d.settings.babyAge != null ? d.settings.babyAge : 2);
+        setBabyName(d.settings.babyName || '');
+      }
+      if (d.diapers) setDiapers(d.diapers);
+      if (d.pumps) setPumps(d.pumps);
+      if (d.weights) setWeights(d.weights);
+      if (d.medicines) setMedicines(d.medicines);
+      if (d.wakeWindows) setWakeWindows(d.wakeWindows);
+      if (d.wakeState) {
+        setIsBabyAwake(d.wakeState.awake);
+        setWakeStartTime(d.wakeState.startTime ? new Date(d.wakeState.startTime) : null);
+      }
+      setFromCache(true);
+    } catch (e) {}
+  }, []);
+
+  // Online / offline detection
+  useEffect(() => {
+    const up = () => setIsOnline(true);
+    const down = () => setIsOnline(false);
+    window.addEventListener('online', up);
+    window.addEventListener('offline', down);
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
   }, []);
 
   // Reset log time to "now" whenever a modal opens
@@ -1343,6 +1385,11 @@ export default function App() {
     }}>
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 74 }}>
+        {!isOnline && (
+          <div style={{ background: AMBER, color: 'white', fontSize: 13, fontWeight: 600, textAlign: 'center', padding: '10px 16px', letterSpacing: 0.2, lineHeight: 1.4 }}>
+            You're offline{fromCache ? ' — showing last saved data' : ''}. New entries won't sync until you reconnect.
+          </div>
+        )}
         {activeTab === 'home' && HomeTab()}
         {activeTab === 'stats' && StatsTab()}
         {activeTab === 'settings' && SettingsTab()}

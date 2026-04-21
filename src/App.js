@@ -608,26 +608,6 @@ export default function App() {
     <div style={{ padding: '32px 20px 24px' }}>
       <h2 style={{ margin: '0 0 24px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Settings</h2>
 
-      {/* Appearance */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Appearance</p>
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-        <div style={{ fontSize: 13, color: TEXT2, marginBottom: 10 }}>Theme</div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {[
-            { value: 'system', label: 'System' },
-            { value: 'light', label: 'Light' },
-            { value: 'dark', label: 'Dark' },
-          ].map(({ value, label }) => (
-            <button key={value} onClick={() => { setTheme(value); localStorage.setItem('theme', value); }} style={{
-              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
-              cursor: 'pointer',
-              background: theme === value ? ACCENT : BG,
-              color: theme === value ? 'white' : TEXT2,
-            }}>{label}</button>
-          ))}
-        </div>
-      </div>
-
       {/* Baby info */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby</p>
       <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -652,6 +632,26 @@ export default function App() {
             cursor: 'pointer', background: unit === u ? ACCENT : BG, color: unit === u ? 'white' : TEXT2,
           }}>{u}</button>
         ))}
+      </div>
+
+      {/* Appearance */}
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Appearance</p>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ fontSize: 13, color: TEXT2, marginBottom: 10 }}>Theme</div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[
+            { value: 'system', label: 'System' },
+            { value: 'light', label: 'Light' },
+            { value: 'dark', label: 'Dark' },
+          ].map(({ value, label }) => (
+            <button key={value} onClick={() => { setTheme(value); localStorage.setItem('theme', value); }} style={{
+              flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+              cursor: 'pointer',
+              background: theme === value ? ACCENT : BG,
+              color: theme === value ? 'white' : TEXT2,
+            }}>{label}</button>
+          ))}
+        </div>
       </div>
 
       {/* Room code */}

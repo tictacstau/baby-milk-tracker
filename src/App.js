@@ -43,6 +43,10 @@ export default function App() {
   const [timeUntilFeed, setTimeUntilFeed] = useState('');
   const notificationFired = useRef(false);
   const settingsLoaded = useRef(false);
+  const deferredInstallPrompt = useRef(null);
+  const [installable, setInstallable] = useState(false);
+  const [showInstallInstructions, setShowInstallInstructions] = useState(false);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   const [diapers, setDiapers] = useState([]);
   const [pumps, setPumps] = useState([]);
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump' | 'weight' | 'medicine'
@@ -200,6 +204,13 @@ export default function App() {
     const handler = (e) => setSystemDark(e.matches);
     mq.addEventListener('change', handler);
     return () => mq.removeEventListener('change', handler);
+  }, []);
+
+  // Android PWA install prompt
+  useEffect(() => {
+    const handler = (e) => { e.preventDefault(); deferredInstallPrompt.current = e; setInstallable(true); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
   // Wake window live timer
@@ -637,6 +648,66 @@ export default function App() {
           Copy
         </button>
       </div>
+
+      {/* Install app */}
+      {!isStandalone && <>
+        <p style={{ margin: '20px 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Install App</p>
+        <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div style={{ fontSize: 13, color: TEXT2, marginBottom: 14 }}>
+            Add TeamBaby to your home screen for the best experience — it opens like a regular app with no browser bar.
+          </div>
+          {installable ? (
+            <button
+              onClick={async () => {
+                deferredInstallPrompt.current.prompt();
+                const { outcome } = await deferredInstallPrompt.current.userChoice;
+                if (outcome === 'accepted') { deferredInstallPrompt.current = null; setInstallable(false); }
+              }}
+              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: 'white' }}
+            >
+              Add to Home Screen
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowInstallInstructions(v => !v)}
+              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: 'white' }}
+            >
+              How to Install
+            </button>
+          )}
+          {showInstallInstructions && (
+            <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {isIOS ? (
+                [
+                  { step: '1', text: 'Tap the Share button (□↑) at the bottom of Safari' },
+                  { step: '2', text: 'Scroll down and tap "Add to Home Screen"' },
+                  { step: '3', text: 'Tap "Add" in the top right corner' },
+                ].map(({ step, text }) => (
+                  <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{step}</span>
+                    </div>
+                    <span style={{ fontSize: 14, color: TEXT, paddingTop: 4 }}>{text}</span>
+                  </div>
+                ))
+              ) : (
+                [
+                  { step: '1', text: 'Tap the three-dot menu (⋮) in Chrome' },
+                  { step: '2', text: 'Tap "Add to Home screen"' },
+                  { step: '3', text: 'Tap "Add" to confirm' },
+                ].map(({ step, text }) => (
+                  <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{step}</span>
+                    </div>
+                    <span style={{ fontSize: 14, color: TEXT, paddingTop: 4 }}>{text}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </>}
     </div>
   );
 

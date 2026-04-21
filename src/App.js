@@ -56,6 +56,7 @@ export default function App() {
   const [weightInput, setWeightInput] = useState('');
   const [medicineName, setMedicineName] = useState('');
   const [medicineDose, setMedicineDose] = useState('');
+  const [logTime, setLogTime] = useState('');
   const [showWeights, setShowWeights] = useState(false);
   const [showMedicines, setShowMedicines] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
@@ -213,6 +214,22 @@ export default function App() {
     return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
 
+  // Reset log time to "now" whenever a modal opens
+  useEffect(() => {
+    if (quickLogModal) {
+      const now = new Date();
+      setLogTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+    }
+  }, [quickLogModal]);
+
+  const getLogTimestamp = () => {
+    if (!logTime) return new Date().toISOString();
+    const [h, m] = logTime.split(':').map(Number);
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  };
+
   // Wake window live timer
   useEffect(() => {
     const interval = setInterval(() => {
@@ -299,7 +316,7 @@ export default function App() {
     await requestNotifications();
     notificationFired.current = false;
     const newFeed = {
-      timestamp: new Date().toISOString(),
+      timestamp: getLogTimestamp(),
       amount: unit === 'oz' ? ozToMl(amount) : amount,
       unit,
     };
@@ -332,7 +349,7 @@ export default function App() {
   };
 
   const logDiaper = (type) => {
-    const entry = { timestamp: new Date().toISOString(), type };
+    const entry = { timestamp: getLogTimestamp(), type };
     const updated = [...diapers, entry];
     setDiapers(updated);
     syncRoom(roomCode, { diapers: updated });
@@ -340,7 +357,7 @@ export default function App() {
   };
 
   const logPump = (amount) => {
-    const entry = { timestamp: new Date().toISOString(), amount: unit === 'oz' ? ozToMl(amount) : amount };
+    const entry = { timestamp: getLogTimestamp(), amount: unit === 'oz' ? ozToMl(amount) : amount };
     const updated = [...pumps, entry];
     setPumps(updated);
     syncRoom(roomCode, { pumps: updated });
@@ -359,7 +376,7 @@ export default function App() {
   };
 
   const logWeight = (grams) => {
-    const entry = { timestamp: new Date().toISOString(), grams };
+    const entry = { timestamp: getLogTimestamp(), grams };
     const updated = [...weights, entry];
     setWeights(updated);
     syncRoom(roomCode, { weights: updated });
@@ -368,7 +385,7 @@ export default function App() {
   };
 
   const logMedicine = (name, dose) => {
-    const entry = { timestamp: new Date().toISOString(), name, dose };
+    const entry = { timestamp: getLogTimestamp(), name, dose };
     const updated = [...medicines, entry];
     setMedicines(updated);
     syncRoom(roomCode, { medicines: updated });
@@ -1343,6 +1360,13 @@ export default function App() {
           >
             {/* Handle */}
             <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: '0 auto 20px' }} />
+
+            {/* Shared time picker */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: BG, borderRadius: 10, marginBottom: 20 }}>
+              <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Time</span>
+              <input type="time" value={logTime} onChange={e => setLogTime(e.target.value)}
+                style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 600, color: TEXT, outline: 'none', cursor: 'pointer' }} />
+            </div>
 
             {quickLogModal === 'feed' && (
               <>

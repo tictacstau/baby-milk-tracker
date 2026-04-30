@@ -194,6 +194,7 @@ export default function App() {
     if (isStandalone) return;
     if (localStorage.getItem('teambaby_nudge_dismissed')) return;
     if (feeds.length >= 1) setShowInstallNudge(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [feeds.length]);
 
   // Save settings

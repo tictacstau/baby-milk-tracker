@@ -49,6 +49,7 @@ function isFirebaseRequest(url) {
 
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
+  if (!['http:', 'https:'].includes(url.protocol)) return;
   if (isFirebaseRequest(url)) return;
   if (event.request.method !== 'GET') return;
 

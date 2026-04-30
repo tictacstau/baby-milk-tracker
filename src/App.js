@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -50,7 +50,8 @@ export default function App() {
   const [diapers, setDiapers] = useState([]);
   const [pumps, setPumps] = useState([]);
   const [quickLogModal, setQuickLogModal] = useState(null); // null | 'feed' | 'diaper' | 'pump' | 'weight' | 'medicine'
-  const [pumpAmount, setPumpAmount] = useState('');
+  const [pumpLeft, setPumpLeft] = useState('');
+  const [pumpRight, setPumpRight] = useState('');
   const [weights, setWeights] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [weightInput, setWeightInput] = useState('');
@@ -66,6 +67,13 @@ export default function App() {
   const [systemDark, setSystemDark] = useState(() => window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false);
   const [splashVisible, setSplashVisible] = useState(true);
   const [splashFading, setSplashFading] = useState(false);
+  const [showInstallNudge, setShowInstallNudge] = useState(false);
+  const [babyDOB, setBabyDOB] = useState('');
+  const [babyGender, setBabyGender] = useState('boy');
+
+  const effectiveAge = babyDOB
+    ? Math.max(0, Math.floor((Date.now() - new Date(babyDOB)) / (7 * 24 * 60 * 60 * 1000)))
+    : babyAge;
 
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
   const ACCENT = '#5856D6';
@@ -104,7 +112,7 @@ export default function App() {
       const initial = {
         feeds, diapers, pumps, weights, medicines, wakeWindows,
         wakeState: { awake: isBabyAwake, startTime: wakeStartTime ? wakeStartTime.toISOString() : null },
-        settings: { unit, babyAge, babyName },
+        settings: { unit, babyAge, babyName, babyDOB, babyGender },
       };
       const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Connection timed out — check Firebase config')), 10000));
       await Promise.race([setDoc(doc(db, 'rooms', code), initial), timeout]);
@@ -155,6 +163,8 @@ export default function App() {
         setUnit(d.settings.unit || 'ml');
         setBabyAge(d.settings.babyAge != null ? d.settings.babyAge : 2);
         setBabyName(d.settings.babyName || '');
+        setBabyDOB(d.settings.babyDOB || '');
+        setBabyGender(d.settings.babyGender || 'boy');
         settingsLoaded.current = true;
       }
       if (d.diapers) setDiapers(d.diapers);
@@ -179,11 +189,18 @@ export default function App() {
     return () => { clearTimeout(fadeTimer); clearTimeout(hideTimer); };
   }, []);
 
+  // Install nudge: show after first feed logged, once only
+  useEffect(() => {
+    if (isStandalone) return;
+    if (localStorage.getItem('teambaby_nudge_dismissed')) return;
+    if (feeds.length >= 1) setShowInstallNudge(true);
+  }, [feeds.length]);
+
   // Save settings
   useEffect(() => {
-    if (!roomCode || !settingsLoaded.current || babyAge === 0 || babyAge === '') return;
-    syncRoom(roomCode, { settings: { unit, babyAge, babyName } });
-  }, [unit, babyAge, babyName, roomCode]);
+    if (!roomCode || !settingsLoaded.current || effectiveAge === 0) return;
+    syncRoom(roomCode, { settings: { unit, babyAge: effectiveAge, babyName, babyDOB, babyGender } });
+  }, [unit, effectiveAge, babyName, babyDOB, babyGender, roomCode]);
 
   // Countdown timer
   useEffect(() => {
@@ -242,6 +259,8 @@ export default function App() {
         setUnit(d.settings.unit || 'ml');
         setBabyAge(d.settings.babyAge != null ? d.settings.babyAge : 2);
         setBabyName(d.settings.babyName || '');
+        setBabyDOB(d.settings.babyDOB || '');
+        setBabyGender(d.settings.babyGender || 'boy');
       }
       if (d.diapers) setDiapers(d.diapers);
       if (d.pumps) setPumps(d.pumps);
@@ -297,10 +316,10 @@ export default function App() {
   }, [isBabyAwake, wakeStartTime]);
 
   const getRecommendedWakeWindow = () => {
-    if (babyAge <= 4) return { min: 45, max: 60 };
-    if (babyAge <= 8) return { min: 60, max: 90 };
-    if (babyAge <= 16) return { min: 75, max: 120 };
-    if (babyAge <= 24) return { min: 90, max: 180 };
+    if (effectiveAge <= 4) return { min: 45, max: 60 };
+    if (effectiveAge <= 8) return { min: 60, max: 90 };
+    if (effectiveAge <= 16) return { min: 75, max: 120 };
+    if (effectiveAge <= 24) return { min: 90, max: 180 };
     return { min: 120, max: 180 };
   };
 
@@ -344,10 +363,10 @@ export default function App() {
   };
 
   const getRecommendedAmount = () => {
-    if (babyAge <= 1) return 60;
-    if (babyAge <= 2) return 90;
-    if (babyAge <= 4) return 120;
-    if (babyAge <= 8) return 150;
+    if (effectiveAge <= 1) return 60;
+    if (effectiveAge <= 2) return 90;
+    if (effectiveAge <= 4) return 120;
+    if (effectiveAge <= 8) return 150;
     return 180;
   };
 
@@ -407,12 +426,15 @@ export default function App() {
     setQuickLogModal(null);
   };
 
-  const logPump = (amount) => {
-    const entry = { timestamp: getLogTimestamp(), amount: unit === 'oz' ? ozToMl(amount) : amount };
+  const logPump = (left, right) => {
+    const toMl = (v) => v ? (unit === 'oz' ? ozToMl(parseFloat(v)) : parseFloat(v)) : 0;
+    const leftMl = toMl(left);
+    const rightMl = toMl(right);
+    const entry = { timestamp: getLogTimestamp(), amount: leftMl + rightMl, left: leftMl, right: rightMl };
     const updated = [...pumps, entry];
     setPumps(updated);
     syncRoom(roomCode, { pumps: updated });
-    setPumpAmount('');
+    setPumpLeft(''); setPumpRight('');
     setQuickLogModal(null);
   };
 
@@ -499,7 +521,8 @@ export default function App() {
 
   const tabs = [
     { id: 'home', label: 'Home', Icon: Home },
-    { id: 'stats', label: 'Summary', Icon: BarChart2 },
+    { id: 'stats', label: 'Stats', Icon: BarChart2 },
+    { id: 'growth', label: 'Growth', Icon: TrendingUp },
     { id: 'settings', label: 'Settings', Icon: Settings },
   ];
 
@@ -594,6 +617,55 @@ export default function App() {
         )}
       </div>
 
+      {/* Install nudge */}
+      {showInstallNudge && (
+        <div style={{
+          background: ACCENT, borderRadius: 16, padding: '14px 16px',
+          marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12,
+          boxShadow: '0 2px 8px rgba(88,86,214,0.35)',
+        }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>Add to your home screen</div>
+            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>
+              Get one-tap access — no browser bar.
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+            {installable ? (
+              <button
+                onClick={async () => {
+                  deferredInstallPrompt.current.prompt();
+                  const { outcome } = await deferredInstallPrompt.current.userChoice;
+                  if (outcome === 'accepted') { deferredInstallPrompt.current = null; setInstallable(false); }
+                  setShowInstallNudge(false);
+                  localStorage.setItem('teambaby_nudge_dismissed', '1');
+                }}
+                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Install
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setActiveTab('settings');
+                  setShowInstallNudge(false);
+                  localStorage.setItem('teambaby_nudge_dismissed', '1');
+                }}
+                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}
+              >
+                Show me
+              </button>
+            )}
+            <button
+              onClick={() => { setShowInstallNudge(false); localStorage.setItem('teambaby_nudge_dismissed', '1'); }}
+              style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 1 }}
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Quick Log Strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
         {[
@@ -660,7 +732,7 @@ export default function App() {
       <h2 style={{ margin: '0 0 24px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Settings</h2>
 
       {/* Baby info */}
-      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby</p>
+      <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby Profile</p>
       <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 120 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
@@ -668,10 +740,41 @@ export default function App() {
             style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
         </div>
         <div style={{ flex: 1, minWidth: 120 }}>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
-          <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Gender</label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {['boy', 'girl'].map(g => (
+              <button key={g} onClick={() => setBabyGender(g)} style={{
+                flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? 'white' : TEXT2,
+              }}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>
+            ))}
+          </div>
         </div>
+        <div style={{ flex: 1, minWidth: 120 }}>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Date of Birth</label>
+          <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
+            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+        </div>
+        {!babyDOB && (
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
+            <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
+              style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+          </div>
+        )}
+        {babyDOB && (
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age</label>
+            <div style={{ padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, color: TEXT, background: BG }}>
+              {(() => {
+                const months = Math.floor(effectiveAge / 4.345);
+                const remWeeks = effectiveAge - Math.round(months * 4.345);
+                if (months === 0) return `${effectiveAge}w`;
+                return remWeeks > 0 ? `${months}m ${remWeeks}w` : `${months}m`;
+              })()}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Units */}
@@ -1043,9 +1146,16 @@ export default function App() {
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: PUMP_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                   <Activity size={16} color={GREEN} />
                 </div>
-                <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
-                  {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                </span>
+                <div>
+                  <div style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
+                    {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                  </div>
+                  {(p.left != null || p.right != null) && (
+                    <div style={{ fontSize: 11, color: TEXT2, marginTop: 2 }}>
+                      L {convert(p.left || 0)}{unit} · R {convert(p.right || 0)}{unit}
+                    </div>
+                  )}
+                </div>
               </div>
               <span style={{ fontSize: 16, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
             </div>
@@ -1326,9 +1436,16 @@ export default function App() {
                                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: PUMP_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                   <Activity size={13} color={GREEN} />
                                 </div>
-                                <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
-                                  {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                                </span>
+                                <div>
+                                  <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
+                                    {new Date(p.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
+                                  </div>
+                                  {(p.left != null || p.right != null) && (
+                                    <div style={{ fontSize: 11, color: TEXT2, marginTop: 1 }}>
+                                      L {convert(p.left || 0)}{unit} · R {convert(p.right || 0)}{unit}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                               <span style={{ fontSize: 15, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
                             </div>
@@ -1344,6 +1461,249 @@ export default function App() {
         );
       })()}
     </div>
+    );
+  };
+
+  // ── Growth Tab ───────────────────────────────────────────
+  const GrowthTab = () => {
+    const CDC_WEIGHT = {
+      boy: [
+        [0,2.46,2.55,2.72,3.03,3.35,3.69,4.01,4.18,4.29],
+        [1,3.27,3.39,3.62,4.01,4.47,4.93,5.35,5.58,5.72],
+        [2,4.13,4.27,4.55,5.01,5.57,6.13,6.64,6.91,7.08],
+        [3,4.80,4.96,5.28,5.81,6.45,7.10,7.68,7.99,8.18],
+        [4,5.29,5.47,5.82,6.39,7.08,7.79,8.43,8.77,8.98],
+        [5,5.71,5.90,6.27,6.88,7.61,8.38,9.06,9.43,9.65],
+        [6,6.07,6.27,6.67,7.31,8.09,8.90,9.62,10.01,10.25],
+        [7,6.39,6.60,7.02,7.70,8.51,9.36,10.12,10.53,10.79],
+        [8,6.68,6.90,7.34,8.05,8.89,9.78,10.57,11.00,11.27],
+        [9,6.95,7.18,7.64,8.37,9.24,10.17,10.99,11.44,11.73],
+        [10,7.21,7.44,7.92,8.67,9.57,10.52,11.38,11.85,12.14],
+        [11,7.44,7.68,8.18,8.95,9.88,10.86,11.75,12.23,12.54],
+        [12,7.66,7.91,8.42,9.21,10.18,11.18,12.10,12.60,12.93],
+        [15,8.17,8.43,8.98,9.81,10.83,11.91,12.89,13.43,13.78],
+        [18,8.64,8.92,9.49,10.37,11.44,12.57,13.60,14.18,14.56],
+        [21,9.10,9.39,9.99,10.91,12.04,13.22,14.31,14.92,15.33],
+        [24,9.57,9.88,10.49,11.46,12.64,13.87,15.01,15.66,16.10],
+        [27,10.02,10.33,10.98,11.99,13.22,14.51,15.71,16.39,16.85],
+        [30,10.46,10.79,11.46,12.51,13.79,15.14,16.39,17.11,17.60],
+        [33,10.89,11.23,11.92,13.01,14.34,15.75,17.05,17.81,18.33],
+        [36,11.30,11.65,12.37,13.49,14.87,16.34,17.69,18.49,19.04],
+      ],
+      girl: [
+        [0,2.32,2.41,2.58,2.87,3.17,3.49,3.80,3.96,4.07],
+        [1,3.00,3.11,3.33,3.71,4.15,4.60,5.01,5.24,5.39],
+        [2,3.73,3.88,4.14,4.61,5.12,5.67,6.17,6.44,6.60],
+        [3,4.37,4.53,4.83,5.36,5.93,6.56,7.12,7.42,7.61],
+        [4,4.83,5.01,5.34,5.91,6.52,7.20,7.82,8.14,8.35],
+        [5,5.22,5.41,5.76,6.37,7.01,7.73,8.39,8.74,8.96],
+        [6,5.56,5.76,6.13,6.77,7.45,8.21,8.91,9.27,9.50],
+        [7,5.87,6.08,6.47,7.13,7.85,8.64,9.38,9.76,10.00],
+        [8,6.16,6.38,6.79,7.48,8.22,9.05,9.82,10.22,10.47],
+        [9,6.43,6.66,7.09,7.80,8.57,9.44,10.24,10.65,10.92],
+        [10,6.69,6.93,7.37,8.10,8.91,9.81,10.63,11.07,11.35],
+        [11,6.94,7.18,7.64,8.40,9.23,10.17,11.02,11.48,11.77],
+        [12,7.17,7.43,7.90,8.68,9.55,10.51,11.40,11.88,12.18],
+        [15,7.72,7.99,8.49,9.32,10.23,11.25,12.20,12.71,13.05],
+        [18,8.22,8.51,9.04,9.91,10.88,11.95,12.97,13.53,13.88],
+        [21,8.68,8.98,9.55,10.46,11.49,12.62,13.70,14.31,14.69],
+        [24,9.12,9.44,10.04,10.99,12.07,13.26,14.40,15.05,15.45],
+        [27,9.55,9.88,10.52,11.51,12.65,13.90,15.10,15.79,16.22],
+        [30,9.97,10.32,10.98,12.02,13.21,14.52,15.78,16.52,16.97],
+        [33,10.38,10.74,11.43,12.51,13.76,15.14,16.46,17.24,17.71],
+        [36,10.78,11.15,11.87,13.00,14.30,15.74,17.12,17.95,18.44],
+      ],
+    };
+
+    const interpCdc = (gender, ageMonths) => {
+      const table = CDC_WEIGHT[gender];
+      const age = Math.max(0, Math.min(36, ageMonths));
+      let lo = table[0], hi = table[table.length - 1];
+      for (let i = 0; i < table.length - 1; i++) {
+        if (table[i][0] <= age && table[i + 1][0] >= age) { lo = table[i]; hi = table[i + 1]; break; }
+      }
+      const t = hi[0] === lo[0] ? 0 : (age - lo[0]) / (hi[0] - lo[0]);
+      return lo.map((v, i) => i === 0 ? age : lo[i] + t * (hi[i] - lo[i]));
+    };
+
+    const PCTLS = [3, 5, 10, 25, 50, 75, 90, 95, 97];
+    const getPercentile = (gender, ageMonths, weightKg) => {
+      const vals = interpCdc(gender, ageMonths).slice(1);
+      if (weightKg <= vals[0]) return '< 3rd';
+      if (weightKg >= vals[8]) return '> 97th';
+      for (let i = 0; i < vals.length - 1; i++) {
+        if (weightKg >= vals[i] && weightKg <= vals[i + 1]) {
+          const frac = (weightKg - vals[i]) / (vals[i + 1] - vals[i]);
+          return Math.round(PCTLS[i] + frac * (PCTLS[i + 1] - PCTLS[i]));
+        }
+      }
+      return null;
+    };
+
+    const ordinal = (n) => {
+      if (typeof n !== 'number') return n;
+      const s = ['th','st','nd','rd'];
+      const v = n % 100;
+      return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    };
+
+    const toSubP = (n) => {
+      if (typeof n !== 'number') {
+        const digits = n.replace(/[^0-9]/g, '').split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[d]).join('');
+        return (n.startsWith('<') ? '<' : '>') + 'P' + digits;
+      }
+      const sub = String(n).split('').map(d => '₀₁₂₃₄₅₆₇₈₉'[d]).join('');
+      return 'P' + sub;
+    };
+
+    const gender = babyGender === 'girl' ? 'girl' : 'boy';
+    const table = CDC_WEIGHT[gender];
+
+    const babyPoints = babyDOB ? weights.map(w => ({
+      ageMonths: (new Date(w.timestamp) - new Date(babyDOB)) / (1000 * 60 * 60 * 24 * 30.4375),
+      weightKg: w.grams / 1000,
+      timestamp: w.timestamp,
+    })).filter(p => p.ageMonths >= 0 && p.ageMonths <= 36).sort((a, b) => a.ageMonths - b.ageMonths) : [];
+
+    const latest = babyPoints.length > 0 ? babyPoints[babyPoints.length - 1] : null;
+    const currentPercentile = latest ? getPercentile(gender, latest.ageMonths, latest.weightKg) : null;
+
+    const svgW = 340, svgH = 210;
+    const ml = 36, mr = 10, mt = 12, mb = 28;
+    const cW = svgW - ml - mr, cH = svgH - mt - mb;
+    const minWt = 1.5, maxWt = 20, maxAge = 36;
+    const xOf = (m) => ml + (m / maxAge) * cW;
+    const yOf = (kg) => mt + (1 - (kg - minWt) / (maxWt - minWt)) * cH;
+    const cdcLine = (col) => table.map(row => `${xOf(row[0]).toFixed(1)},${yOf(row[col]).toFixed(1)}`).join(' ');
+    const babyLine = babyPoints.map(p => `${xOf(p.ageMonths).toFixed(1)},${yOf(p.weightKg).toFixed(1)}`).join(' ');
+
+    const yGridWeights = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20];
+    const xGridMonths = [0, 6, 12, 18, 24, 30, 36];
+    const pLines = [
+      [1, 0.18], [2, 0.25], [3, 0.32], [4, 0.42],
+      [5, 0.58], [6, 0.42], [7, 0.32], [8, 0.25], [9, 0.18],
+    ];
+    const legendItems = [
+      { label: 'P5', opacity: 0.25 }, { label: 'P25', opacity: 0.42 },
+      { label: 'P50', opacity: 0.58 }, { label: 'P75', opacity: 0.42 }, { label: 'P95', opacity: 0.25 },
+    ];
+
+    if (!babyDOB) return (
+      <div style={{ padding: '32px 20px 24px' }}>
+        <h2 style={{ margin: '0 0 8px', fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Growth</h2>
+        <div style={{ background: CARD, borderRadius: 16, padding: '36px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginTop: 24 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>📏</div>
+          <div style={{ fontSize: 17, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Add your baby's date of birth</div>
+          <div style={{ fontSize: 14, color: TEXT2, marginBottom: 24, lineHeight: 1.5 }}>Set your baby's birthday in Settings to see CDC growth percentile charts.</div>
+          <button onClick={() => setActiveTab('settings')} style={{ background: ACCENT, color: 'white', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+            Go to Settings
+          </button>
+        </div>
+      </div>
+    );
+
+    return (
+      <div style={{ padding: '32px 20px 24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 26, fontWeight: 700, color: TEXT, letterSpacing: -0.5 }}>Growth</h2>
+          <span style={{ fontSize: 11, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>CDC · 0–36 mo</span>
+        </div>
+
+        {latest && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+            <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: WEIGHT_COLOR, marginBottom: 3 }}>
+                {latest.weightKg >= 1 ? `${latest.weightKg.toFixed(2)} kg` : `${Math.round(latest.weightKg * 1000)} g`}
+              </div>
+              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Latest weight</div>
+            </div>
+            <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: ACCENT, marginBottom: 3 }}>
+                {ordinal(currentPercentile)}
+              </div>
+              <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Weight percentile</div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ background: CARD, borderRadius: 16, padding: '16px 10px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', marginBottom: 16 }}>
+          <svg viewBox={`0 0 ${svgW} ${svgH}`} style={{ width: '100%', display: 'block', overflow: 'visible' }}>
+            {yGridWeights.filter(w => w >= minWt).map(w => (
+              <g key={w}>
+                <line x1={ml} y1={yOf(w)} x2={ml + cW} y2={yOf(w)} stroke={BORDER} strokeWidth={0.5} />
+                <text x={ml - 4} y={yOf(w) + 3.5} textAnchor="end" fontSize={8.5} fill={TEXT2}>{w}</text>
+              </g>
+            ))}
+            {xGridMonths.map(m => (
+              <g key={m}>
+                <line x1={xOf(m)} y1={mt} x2={xOf(m)} y2={mt + cH} stroke={BORDER} strokeWidth={0.5} />
+                <text x={xOf(m)} y={mt + cH + 14} textAnchor="middle" fontSize={8.5} fill={TEXT2}>{m}m</text>
+              </g>
+            ))}
+            {pLines.map(([col, opacity]) => (
+              <polyline key={col} points={cdcLine(col)} fill="none" stroke={WEIGHT_COLOR}
+                strokeWidth={col === 5 ? 1.5 : 1} strokeOpacity={opacity} />
+            ))}
+            {babyPoints.length > 1 && (
+              <polyline points={babyLine} fill="none" stroke={ACCENT}
+                strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
+            )}
+            {babyPoints.map((p, i) => (
+              <circle key={i} cx={xOf(p.ageMonths)} cy={yOf(p.weightKg)} r={4.5}
+                fill={ACCENT} stroke={CARD} strokeWidth={2} />
+            ))}
+          </svg>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 6, flexWrap: 'wrap' }}>
+            {legendItems.map(({ label, opacity }) => (
+              <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <div style={{ width: 14, height: 2, background: WEIGHT_COLOR, opacity, borderRadius: 1 }} />
+                <span style={{ fontSize: 10, color: TEXT2 }}>{label}</span>
+              </div>
+            ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 14, height: 3, background: ACCENT, borderRadius: 1 }} />
+              <span style={{ fontSize: 10, color: TEXT2 }}>{babyName || 'Baby'}</span>
+            </div>
+          </div>
+        </div>
+
+        {babyPoints.length === 0 ? (
+          <div style={{ background: CARD, borderRadius: 16, padding: '24px 20px', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p style={{ margin: 0, fontSize: 14, color: TEXT2 }}>No weight entries yet. Log weight from the home screen.</p>
+          </div>
+        ) : (
+          <div style={{ background: CARD, borderRadius: 16, padding: '18px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>Weight History</div>
+            {[...babyPoints].reverse().slice(0, 15).map((p, idx, arr) => {
+              const pct = getPercentile(gender, p.ageMonths, p.weightKg);
+              const totalWeeks = Math.floor(p.ageMonths * 4.345);
+              const mos = Math.floor(totalWeeks / 4.345);
+              const remWeeks = totalWeeks - Math.round(mos * 4.345);
+              const ageLabel = mos === 0 ? `${totalWeeks}w` : remWeeks > 0 ? `${mos}m ${remWeeks}w` : `${mos}m`;
+              return (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: idx < arr.length - 1 ? `1px solid ${BORDER}` : 'none' }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: WEIGHT_COLOR }}>
+                      {p.weightKg >= 1 ? `${p.weightKg.toFixed(2)} kg` : `${Math.round(p.weightKg * 1000)} g`}
+                    </div>
+                    <div style={{ fontSize: 11, color: TEXT2, marginTop: 1 }}>
+                      {ageLabel} old
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>
+                      {toSubP(pct)}
+                    </div>
+                    <div style={{ fontSize: 11, color: TEXT2, marginTop: 1 }}>
+                      {new Date(p.timestamp).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     );
   };
 
@@ -1440,6 +1800,7 @@ export default function App() {
         )}
         {activeTab === 'home' && HomeTab()}
         {activeTab === 'stats' && StatsTab()}
+        {activeTab === 'growth' && GrowthTab()}
         {activeTab === 'settings' && SettingsTab()}
       </div>
 
@@ -1548,29 +1909,49 @@ export default function App() {
               </>
             )}
 
-            {quickLogModal === 'pump' && (
-              <>
-                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Pump</h3>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="number"
-                    placeholder={`Amount (${unit})`}
-                    value={pumpAmount}
-                    onChange={(e) => setPumpAmount(e.target.value)}
-                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
-                  />
+            {quickLogModal === 'pump' && (() => {
+              const hasAny = pumpLeft || pumpRight;
+              const totalPreview = (parseFloat(pumpLeft) || 0) + (parseFloat(pumpRight) || 0);
+              return (
+                <>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Pump</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                    {[
+                      { side: 'L', label: 'Left breast', val: pumpLeft, set: setPumpLeft },
+                      { side: 'R', label: 'Right breast', val: pumpRight, set: setPumpRight },
+                    ].map(({ side, label, val, set }) => (
+                      <div key={side}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
+                        <div style={{ position: 'relative' }}>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            value={val}
+                            onChange={(e) => set(e.target.value)}
+                            style={{ width: '100%', padding: '12px 36px 12px 14px', border: `1.5px solid ${val ? GREEN : BORDER}`, borderRadius: 10, fontSize: 18, fontWeight: 700, outline: 'none', color: TEXT, background: CARD, boxSizing: 'border-box' }}
+                          />
+                          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: TEXT2 }}>{unit}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {hasAny && (
+                    <div style={{ textAlign: 'center', fontSize: 13, color: TEXT2, marginBottom: 12 }}>
+                      Total: <span style={{ fontWeight: 700, color: GREEN }}>{convert(totalPreview)}{unit}</span>
+                    </div>
+                  )}
                   <button
-                    onClick={() => { if (pumpAmount) logPump(parseFloat(pumpAmount)); }}
-                    disabled={!pumpAmount}
+                    onClick={() => { if (hasAny) logPump(pumpLeft, pumpRight); }}
+                    disabled={!hasAny}
                     style={{
-                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
-                      cursor: pumpAmount ? 'pointer' : 'not-allowed',
-                      background: pumpAmount ? ACCENT : BORDER, color: 'white', opacity: pumpAmount ? 1 : 0.55,
+                      width: '100%', padding: '13px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                      cursor: hasAny ? 'pointer' : 'not-allowed',
+                      background: hasAny ? GREEN : BORDER, color: 'white', opacity: hasAny ? 1 : 0.55,
                     }}
-                  >Log</button>
-                </div>
-              </>
-            )}
+                  >Log Session</button>
+                </>
+              );
+            })()}
 
             {quickLogModal === 'weight' && (
               <>

@@ -199,7 +199,7 @@ export default function App() {
 
   // Save settings
   useEffect(() => {
-    if (!roomCode || !settingsLoaded.current || effectiveAge === 0) return;
+    if (!roomCode || !settingsLoaded.current) return;
     syncRoom(roomCode, { settings: { unit, babyAge: effectiveAge, babyName, babyDOB, babyGender } });
   }, [unit, effectiveAge, babyName, babyDOB, babyGender, roomCode]);
 
@@ -734,39 +734,39 @@ export default function App() {
 
       {/* Baby info */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby Profile</p>
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: 120 }}>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
           <input type="text" placeholder="e.g. Liam" value={babyName} onChange={(e) => setBabyName(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
         </div>
-        <div style={{ flex: 1, minWidth: 120 }}>
+        <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Gender</label>
           <div style={{ display: 'flex', gap: 8 }}>
             {['boy', 'girl'].map(g => (
               <button key={g} onClick={() => setBabyGender(g)} style={{
-                flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                flex: 1, height: 44, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
                 cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? 'white' : TEXT2,
               }}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>
             ))}
           </div>
         </div>
-        <div style={{ flex: 1, minWidth: 120 }}>
+        <div>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Date of Birth</label>
           <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
-            style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
         </div>
         {!babyDOB && (
-          <div style={{ flex: 1, minWidth: 120 }}>
+          <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
             <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
-              style={{ width: '100%', padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+              style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
           </div>
         )}
         {babyDOB && (
-          <div style={{ flex: 1, minWidth: 120 }}>
+          <div>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age</label>
-            <div style={{ padding: '10px 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, color: TEXT, background: BG }}>
+            <div style={{ height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, color: TEXT, background: BG, display: 'flex', alignItems: 'center' }}>
               {(() => {
                 const months = Math.floor(effectiveAge / 4.345);
                 const remWeeks = effectiveAge - Math.round(months * 4.345);

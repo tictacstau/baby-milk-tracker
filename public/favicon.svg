@@ -1,36 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <!-- Purple background -->
-  <rect width="100" height="100" rx="20" fill="#5856D6"/>
+  <!-- Blue background -->
+  <rect width="100" height="100" rx="22" fill="#AFDAEB"/>
 
-  <!-- Shield -->
-  <path d="M50 14
-    C 50 14 24 20 20 23
-    L 18 50
-    C 18 67 30 80 50 89
-    C 70 80 82 67 82 50
-    L 80 23
-    C 76 20 50 14 50 14 Z"
-    fill="none" stroke="white" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+  <!-- Shield outline with gap at upper-right (large sparkle breaks through) -->
+  <path d="M 52 13
+    L 30 18
+    Q 17 21 17 34
+    L 17 56
+    Q 20 70 50 82
+    Q 80 70 83 56
+    L 83 34
+    Q 83 24 71 20
+    L 64 16"
+    fill="none" stroke="white" stroke-width="5.5"
+    stroke-linecap="round" stroke-linejoin="round"/>
 
-  <!-- Baby face (filled white circle) -->
-  <circle cx="50" cy="53" r="17" fill="white"/>
-
-  <!-- Eyes -->
-  <circle cx="44.5" cy="50" r="2.2" fill="#5856D6"/>
-  <circle cx="55.5" cy="50" r="2.2" fill="#5856D6"/>
-
-  <!-- Smile -->
-  <path d="M44 56 Q50 62 56 56" fill="none" stroke="#5856D6" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Baby face circle -->
+  <circle cx="50" cy="57" r="19" fill="white"/>
 
   <!-- Hair tuft -->
-  <path d="M47 36.5 Q50 31 53 36.5" fill="none" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <path d="M 46 38 Q 50 33 54 38"
+    fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round"/>
 
-  <!-- Large sparkle (upper right, outside shield) -->
-  <path d="M73 17 L74.5 21.5 L79 23 L74.5 24.5 L73 29 L71.5 24.5 L67 23 L71.5 21.5 Z" fill="white"/>
+  <!-- Left eye (happy closed arc) -->
+  <path d="M 42 53 Q 44.5 50 47 53"
+    fill="none" stroke="#6BAFC5" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Small sparkle (right) -->
-  <path d="M80 27 L81 29.5 L83.5 30.5 L81 31.5 L80 34 L79 31.5 L76.5 30.5 L79 29.5 Z" fill="white" opacity="0.85"/>
+  <!-- Right eye -->
+  <path d="M 53 53 Q 55.5 50 58 53"
+    fill="none" stroke="#6BAFC5" stroke-width="2.5" stroke-linecap="round"/>
 
-  <!-- Tiny sparkle inside shield top -->
-  <path d="M63 25 L63.8 27 L65.8 27.8 L63.8 28.6 L63 30.6 L62.2 28.6 L60.2 27.8 L62.2 27 Z" fill="white" opacity="0.7"/>
+  <!-- Smile -->
+  <path d="M 43 62 Q 50 68 57 62"
+    fill="none" stroke="#6BAFC5" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Small sparkle inside shield -->
+  <path d="M 55 22 L 56.5 26.5 L 61 28 L 56.5 29.5 L 55 34 L 53.5 29.5 L 49 28 L 53.5 26.5 Z"
+    fill="white"/>
+
+  <!-- Large sparkle outside shield upper-right -->
+  <path d="M 75 10 L 77.5 17.5 L 85 20 L 77.5 22.5 L 75 30 L 72.5 22.5 L 65 20 L 72.5 17.5 Z"
+    fill="white"/>
 </svg>

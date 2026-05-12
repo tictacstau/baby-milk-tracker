@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp, MoreHorizontal } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 
@@ -55,9 +55,16 @@ export default function App() {
   const [weights, setWeights] = useState([]);
   const [medicines, setMedicines] = useState([]);
   const [weightInput, setWeightInput] = useState('');
+  const [weightG, setWeightG] = useState('');
   const [medicineName, setMedicineName] = useState('');
   const [medicineDose, setMedicineDose] = useState('');
   const [logTime, setLogTime] = useState('');
+  const [diaperPendingType, setDiaperPendingType] = useState(null);
+  const [logDate, setLogDate] = useState('');
+  const [sleepStartDate, setSleepStartDate] = useState('');
+  const [sleepStartTime, setSleepStartTime] = useState('');
+  const [sleepEndDate, setSleepEndDate] = useState('');
+  const [sleepEndTime, setSleepEndTime] = useState('');
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [fromCache, setFromCache] = useState(false);
   const [showWeights, setShowWeights] = useState(false);
@@ -70,13 +77,16 @@ export default function App() {
   const [showInstallNudge, setShowInstallNudge] = useState(false);
   const [babyDOB, setBabyDOB] = useState('');
   const [babyGender, setBabyGender] = useState('boy');
+  const [entryActionSheet, setEntryActionSheet] = useState(null); // { type, entry }
+  const [editingEntry, setEditingEntry] = useState(null); // { type, entry }
 
   const effectiveAge = babyDOB
     ? Math.max(0, Math.floor((Date.now() - new Date(babyDOB)) / (7 * 24 * 60 * 60 * 1000)))
     : babyAge;
 
   const isDark = theme === 'dark' || (theme === 'system' && systemDark);
-  const ACCENT = '#5856D6';
+  const ACCENT = '#AFDAEB';
+  const ACCENT_TEXT = '#1a6a85';
   const BG = isDark ? '#000000' : '#F2F2F7';
   const CARD = isDark ? '#1C1C1E' : '#FFFFFF';
   const TEXT = isDark ? '#FFFFFF' : '#1C1C1E';
@@ -85,8 +95,8 @@ export default function App() {
   const GREEN = '#34C759';
   const RED = '#FF3B30';
   const AMBER = '#FF9500';
-  const ACCENT_BG = isDark ? 'rgba(88,86,214,0.25)' : '#EDEDFA';
-  const FEED_BG = isDark ? 'rgba(88,86,214,0.2)' : '#F0F0FF';
+  const ACCENT_BG = isDark ? 'rgba(175,218,235,0.2)' : '#E4F5FB';
+  const FEED_BG = isDark ? 'rgba(175,218,235,0.15)' : '#E4F5FB';
   const DIAPER_BG = isDark ? 'rgba(255,149,0,0.15)' : '#FFF3E0';
   const PUMP_BG = isDark ? 'rgba(52,199,89,0.15)' : '#E8FAF0';
   const WAKE_BG = isDark ? 'rgba(255,149,0,0.12)' : '#FFF8EC';
@@ -285,20 +295,35 @@ export default function App() {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', down); };
   }, []);
 
-  // Reset log time to "now" whenever a modal opens
+  // Reset log time/date to "now" whenever a modal opens
   useEffect(() => {
     if (quickLogModal) {
+      setDiaperPendingType(null);
       const now = new Date();
-      setLogTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
+      const today = now.toISOString().split('T')[0];
+      const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+      setLogTime(hhmm);
+      setLogDate(today);
+      if (quickLogModal === 'sleep') {
+        const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+        setSleepStartDate(oneHourAgo.toISOString().split('T')[0]);
+        setSleepStartTime(`${String(oneHourAgo.getHours()).padStart(2, '0')}:${String(oneHourAgo.getMinutes()).padStart(2, '0')}`);
+        setSleepEndDate(today);
+        setSleepEndTime(hhmm);
+      }
     }
   }, [quickLogModal]);
 
   const getLogTimestamp = () => {
-    if (!logTime) return new Date().toISOString();
-    const [h, m] = logTime.split(':').map(Number);
-    const d = new Date();
-    d.setHours(h, m, 0, 0);
-    return d.toISOString();
+    const base = logDate ? new Date(logDate) : new Date();
+    if (logTime) {
+      const [h, m] = logTime.split(':').map(Number);
+      base.setHours(h, m, 0, 0);
+    } else {
+      const now = new Date();
+      base.setHours(now.getHours(), now.getMinutes(), 0, 0);
+    }
+    return base.toISOString();
   };
 
   // Wake window live timer
@@ -350,6 +375,26 @@ export default function App() {
     }
   };
 
+  const logSleepWindow = () => {
+    const buildDT = (date, time) => {
+      const d = new Date(date);
+      const [h, m] = time.split(':').map(Number);
+      d.setHours(h, m, 0, 0);
+      return d;
+    };
+    const start = buildDT(sleepStartDate, sleepStartTime);
+    const end = buildDT(sleepEndDate, sleepEndTime);
+    if (end <= start) return;
+    const newEntry = { start: start.toISOString(), end: end.toISOString() };
+    const updated = editingEntry?.type === 'sleep'
+      ? wakeWindows.map(w => w.start === editingEntry.entry.start ? newEntry : w).sort((a, b) => new Date(a.start) - new Date(b.start))
+      : [...wakeWindows, newEntry].sort((a, b) => new Date(a.start) - new Date(b.start));
+    if (editingEntry?.type === 'sleep') setEditingEntry(null);
+    setWakeWindows(updated);
+    syncRoom(roomCode, { wakeWindows: updated });
+    setQuickLogModal(null);
+  };
+
   const getTodayWakeWindows = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -364,6 +409,10 @@ export default function App() {
   };
 
   const getRecommendedAmount = () => {
+    if (weights.length > 0) {
+      const latestKg = weights[weights.length - 1].grams / 1000;
+      return Math.round((150 * latestKg) / 8);
+    }
     if (effectiveAge <= 1) return 60;
     if (effectiveAge <= 2) return 90;
     if (effectiveAge <= 4) return 120;
@@ -391,7 +440,10 @@ export default function App() {
       amount: unit === 'oz' ? ozToMl(amount) : amount,
       unit,
     };
-    const updatedFeeds = [...feeds, newFeed];
+    const updatedFeeds = editingEntry?.type === 'feed'
+      ? feeds.map(f => f.timestamp === editingEntry.entry.timestamp ? newFeed : f)
+      : [...feeds, newFeed];
+    if (editingEntry?.type === 'feed') { setEditingEntry(null); setLogDate(''); setLogTime(''); }
     setFeeds(updatedFeeds);
     syncRoom(roomCode, { feeds: updatedFeeds });
     const nextTime = new Date();
@@ -419,11 +471,15 @@ export default function App() {
     return pumps.filter((p) => new Date(p.timestamp) >= today);
   };
 
-  const logDiaper = (type) => {
-    const entry = { timestamp: getLogTimestamp(), type };
-    const updated = [...diapers, entry];
+  const logDiaper = (type, color) => {
+    const newEntry = { timestamp: getLogTimestamp(), type, ...(color ? { color } : {}) };
+    const updated = editingEntry?.type === 'diaper'
+      ? diapers.map(d => d.timestamp === editingEntry.entry.timestamp ? newEntry : d)
+      : [...diapers, newEntry];
+    if (editingEntry?.type === 'diaper') { setEditingEntry(null); setLogDate(''); setLogTime(''); }
     setDiapers(updated);
     syncRoom(roomCode, { diapers: updated });
+    setDiaperPendingType(null);
     setQuickLogModal(null);
   };
 
@@ -431,8 +487,11 @@ export default function App() {
     const toMl = (v) => v ? (unit === 'oz' ? ozToMl(parseFloat(v)) : parseFloat(v)) : 0;
     const leftMl = toMl(left);
     const rightMl = toMl(right);
-    const entry = { timestamp: getLogTimestamp(), amount: leftMl + rightMl, left: leftMl, right: rightMl };
-    const updated = [...pumps, entry];
+    const newEntry = { timestamp: getLogTimestamp(), amount: leftMl + rightMl, left: leftMl, right: rightMl };
+    const updated = editingEntry?.type === 'pump'
+      ? pumps.map(p => p.timestamp === editingEntry.entry.timestamp ? newEntry : p)
+      : [...pumps, newEntry];
+    if (editingEntry?.type === 'pump') { setEditingEntry(null); setLogDate(''); setLogTime(''); }
     setPumps(updated);
     syncRoom(roomCode, { pumps: updated });
     setPumpLeft(''); setPumpRight('');
@@ -450,21 +509,86 @@ export default function App() {
   };
 
   const logWeight = (grams) => {
-    const entry = { timestamp: getLogTimestamp(), grams };
-    const updated = [...weights, entry];
+    const newEntry = { timestamp: getLogTimestamp(), grams };
+    const updated = editingEntry?.type === 'weight'
+      ? weights.map(w => w.timestamp === editingEntry.entry.timestamp ? newEntry : w)
+      : [...weights, newEntry];
+    if (editingEntry?.type === 'weight') { setEditingEntry(null); setLogDate(''); setLogTime(''); }
     setWeights(updated);
     syncRoom(roomCode, { weights: updated });
-    setWeightInput('');
+    setWeightInput(''); setWeightG('');
     setQuickLogModal(null);
   };
 
   const logMedicine = (name, dose) => {
-    const entry = { timestamp: getLogTimestamp(), name, dose };
-    const updated = [...medicines, entry];
+    const newEntry = { timestamp: getLogTimestamp(), name, dose };
+    const updated = editingEntry?.type === 'medicine'
+      ? medicines.map(m => m.timestamp === editingEntry.entry.timestamp ? newEntry : m)
+      : [...medicines, newEntry];
+    if (editingEntry?.type === 'medicine') { setEditingEntry(null); setLogDate(''); setLogTime(''); }
     setMedicines(updated);
     syncRoom(roomCode, { medicines: updated });
     setMedicineName(''); setMedicineDose('');
     setQuickLogModal(null);
+  };
+
+  const deleteEntry = (type, entry) => {
+    if (type === 'feed') {
+      const updated = feeds.filter(f => f.timestamp !== entry.timestamp);
+      setFeeds(updated); syncRoom(roomCode, { feeds: updated });
+    } else if (type === 'diaper') {
+      const updated = diapers.filter(d => d.timestamp !== entry.timestamp);
+      setDiapers(updated); syncRoom(roomCode, { diapers: updated });
+    } else if (type === 'sleep') {
+      const updated = wakeWindows.filter(w => w.start !== entry.start);
+      setWakeWindows(updated); syncRoom(roomCode, { wakeWindows: updated });
+    } else if (type === 'pump') {
+      const updated = pumps.filter(p => p.timestamp !== entry.timestamp);
+      setPumps(updated); syncRoom(roomCode, { pumps: updated });
+    } else if (type === 'weight') {
+      const updated = weights.filter(w => w.timestamp !== entry.timestamp);
+      setWeights(updated); syncRoom(roomCode, { weights: updated });
+    } else if (type === 'medicine') {
+      const updated = medicines.filter(m => m.timestamp !== entry.timestamp);
+      setMedicines(updated); syncRoom(roomCode, { medicines: updated });
+    }
+    setEntryActionSheet(null);
+  };
+
+  const openEditEntry = (type, entry) => {
+    setEntryActionSheet(null);
+    setEditingEntry({ type, entry });
+    if (type === 'sleep') {
+      const s = new Date(entry.start), e = new Date(entry.end);
+      setSleepStartDate(s.toISOString().split('T')[0]);
+      setSleepStartTime(s.toTimeString().slice(0, 5));
+      setSleepEndDate(e.toISOString().split('T')[0]);
+      setSleepEndTime(e.toTimeString().slice(0, 5));
+      setQuickLogModal('sleep');
+    } else {
+      const ts = new Date(entry.timestamp);
+      setLogDate(ts.toISOString().split('T')[0]);
+      setLogTime(ts.toTimeString().slice(0, 5));
+      if (type === 'feed') {
+        setCustomAmount(String(unit === 'oz' ? mlToOz(entry.amount) : entry.amount));
+        setQuickLogModal('feed');
+      } else if (type === 'diaper') {
+        setDiaperPendingType(null);
+        setQuickLogModal('diaper');
+      } else if (type === 'pump') {
+        setPumpLeft(String(unit === 'ml' ? Math.round(entry.left || 0) : mlToOz(entry.left || 0)));
+        setPumpRight(String(unit === 'ml' ? Math.round(entry.right || 0) : mlToOz(entry.right || 0)));
+        setQuickLogModal('pump');
+      } else if (type === 'weight') {
+        setWeightInput(String(Math.floor(entry.grams / 1000)));
+        setWeightG(entry.grams % 1000 > 0 ? String(entry.grams % 1000) : '');
+        setQuickLogModal('weight');
+      } else if (type === 'medicine') {
+        setMedicineName(entry.name);
+        setMedicineDose(entry.dose || '');
+        setQuickLogModal('medicine');
+      }
+    }
   };
 
   const todayFeeds = getTodayFeeds();
@@ -498,7 +622,7 @@ export default function App() {
   const elapsedFrac = getElapsedFraction();
   const timerOffset = TCIRC * (1 - elapsedFrac);
   const timerSize = (TR + TSTROKE) * 2;
-  const timerColor = elapsedFrac >= 1 ? RED : ACCENT;
+  const timerColor = elapsedFrac >= 1 ? RED : ACCENT_TEXT;
 
   // Daily progress ring (Stats tab)
   const PR = 68;
@@ -537,8 +661,8 @@ export default function App() {
             {babyName ? `${babyName}'s Tracker` : "TeamBaby"}
           </h1>
           <button onClick={() => { navigator.clipboard?.writeText(roomCode); }} style={{ background: ACCENT_BG, border: 'none', padding: '3px 10px', borderRadius: 20, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, marginTop: 5 }}>
-            <span style={{ fontSize: 12, color: ACCENT, fontWeight: 700, letterSpacing: 1.5 }}>Room: {roomCode}</span>
-            <span style={{ fontSize: 10, color: ACCENT }}>⎘</span>
+            <span style={{ fontSize: 12, color: ACCENT_TEXT, fontWeight: 700, letterSpacing: 1.5 }}>Room: {roomCode}</span>
+            <span style={{ fontSize: 10, color: ACCENT_TEXT }}>⎘</span>
           </button>
         </div>
         <div style={{ position: 'relative' }}>
@@ -623,11 +747,11 @@ export default function App() {
         <div style={{
           background: ACCENT, borderRadius: 16, padding: '14px 16px',
           marginBottom: 14, display: 'flex', alignItems: 'center', gap: 12,
-          boxShadow: '0 2px 8px rgba(88,86,214,0.35)',
+          boxShadow: '0 2px 8px rgba(26,106,133,0.2)',
         }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 2 }}>Add to your home screen</div>
-            <div style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)', lineHeight: 1.4 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT_TEXT, marginBottom: 2 }}>Add to your home screen</div>
+            <div style={{ fontSize: 12, color: 'rgba(26,106,133,0.75)', lineHeight: 1.4 }}>
               Get one-tap access — no browser bar.
             </div>
           </div>
@@ -641,7 +765,7 @@ export default function App() {
                   setShowInstallNudge(false);
                   localStorage.setItem('teambaby_nudge_dismissed', '1');
                 }}
-                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 Install
               </button>
@@ -652,14 +776,14 @@ export default function App() {
                   setShowInstallNudge(false);
                   localStorage.setItem('teambaby_nudge_dismissed', '1');
                 }}
-                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                style={{ background: '#fff', border: 'none', borderRadius: 10, padding: '8px 14px', fontSize: 13, fontWeight: 700, color: ACCENT_TEXT, cursor: 'pointer', whiteSpace: 'nowrap' }}
               >
                 Show me
               </button>
             )}
             <button
               onClick={() => { setShowInstallNudge(false); localStorage.setItem('teambaby_nudge_dismissed', '1'); }}
-              style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'rgba(255,255,255,0.7)', fontSize: 20, lineHeight: 1 }}
+              style={{ background: 'none', border: 'none', padding: '4px', cursor: 'pointer', color: 'rgba(26,106,133,0.7)', fontSize: 20, lineHeight: 1 }}
             >
               ×
             </button>
@@ -670,14 +794,14 @@ export default function App() {
       {/* Quick Log Strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
         {[
-          { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT, bg: FEED_BG },
+          { id: 'feed', label: 'Feed', Icon: Milk, color: ACCENT_TEXT, bg: FEED_BG },
           { id: 'diaper', label: 'Diaper', Icon: Wind, color: AMBER, bg: DIAPER_BG },
-          { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT, bg: FEED_BG },
+          { id: 'sleep', label: 'Sleep', Icon: Moon, color: ACCENT_TEXT, bg: FEED_BG },
           { id: 'pump', label: 'Pump', Icon: Activity, color: GREEN, bg: PUMP_BG },
           { id: 'weight', label: 'Weight', Icon: Scale, color: WEIGHT_COLOR, bg: WEIGHT_BG },
           { id: 'medicine', label: 'Medicine', Icon: Pill, color: MED_COLOR, bg: MED_BG },
         ].map(({ id, label, Icon, color, bg }) => (
-          <button key={id} onClick={() => id === 'sleep' ? toggleWakeState() : setQuickLogModal(id)} style={{
+          <button key={id} onClick={() => setQuickLogModal(id)} style={{
             background: CARD, border: 'none', borderRadius: 16, padding: '16px 8px',
             cursor: 'pointer', display: 'flex', flexDirection: 'column',
             alignItems: 'center', gap: 8, boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
@@ -685,7 +809,7 @@ export default function App() {
             <div style={{ width: 40, height: 40, borderRadius: '50%', background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <Icon size={20} color={color} />
             </div>
-            <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{id === 'sleep' ? (isBabyAwake ? 'Log Sleep' : 'Log Wake') : `Log ${label}`}</span>
+            <span style={{ fontSize: 13, fontWeight: 600, color: TEXT }}>{`Log ${label}`}</span>
           </button>
         ))}
       </div>
@@ -695,10 +819,10 @@ export default function App() {
         const status = getWakeStatus();
         const { min, max } = getRecommendedWakeWindow();
         return (
-          <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div onClick={toggleWakeState} style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ width: 36, height: 36, borderRadius: '50%', background: isBabyAwake ? WAKE_BG : FEED_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {isBabyAwake ? <Sun size={18} color={AMBER} /> : <Moon size={18} color={ACCENT} />}
+                {isBabyAwake ? <Sun size={18} color={AMBER} /> : <Moon size={18} color={ACCENT_TEXT} />}
               </div>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>
@@ -746,7 +870,7 @@ export default function App() {
             {['boy', 'girl'].map(g => (
               <button key={g} onClick={() => setBabyGender(g)} style={{
                 flex: 1, height: 44, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? 'white' : TEXT2,
+                cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? ACCENT_TEXT : TEXT2,
               }}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>
             ))}
           </div>
@@ -784,7 +908,7 @@ export default function App() {
         {['ml', 'oz'].map((u) => (
           <button key={u} onClick={() => setUnit(u)} style={{
             flex: 1, padding: '12px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
-            cursor: 'pointer', background: unit === u ? ACCENT : BG, color: unit === u ? 'white' : TEXT2,
+            cursor: 'pointer', background: unit === u ? ACCENT : BG, color: unit === u ? ACCENT_TEXT : TEXT2,
           }}>{u}</button>
         ))}
       </div>
@@ -803,7 +927,7 @@ export default function App() {
               flex: 1, padding: '10px 4px', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
               cursor: 'pointer',
               background: theme === value ? ACCENT : BG,
-              color: theme === value ? 'white' : TEXT2,
+              color: theme === value ? ACCENT_TEXT : TEXT2,
             }}>{label}</button>
           ))}
         </div>
@@ -814,9 +938,9 @@ export default function App() {
       <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <div style={{ fontSize: 13, color: TEXT2, marginBottom: 4 }}>Share this code with your partner</div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT, letterSpacing: 3 }}>{roomCode}</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: ACCENT_TEXT, letterSpacing: 3 }}>{roomCode}</div>
         </div>
-        <button onClick={() => navigator.clipboard?.writeText(roomCode)} style={{ background: ACCENT_BG, border: 'none', padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: ACCENT }}>
+        <button onClick={() => navigator.clipboard?.writeText(roomCode)} style={{ background: ACCENT_BG, border: 'none', padding: '8px 16px', borderRadius: 20, cursor: 'pointer', fontSize: 13, fontWeight: 600, color: ACCENT_TEXT }}>
           Copy
         </button>
       </div>
@@ -835,14 +959,14 @@ export default function App() {
                 const { outcome } = await deferredInstallPrompt.current.userChoice;
                 if (outcome === 'accepted') { deferredInstallPrompt.current = null; setInstallable(false); }
               }}
-              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: 'white' }}
+              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: ACCENT_TEXT }}
             >
               Add to Home Screen
             </button>
           ) : (
             <button
               onClick={() => setShowInstallInstructions(v => !v)}
-              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: 'white' }}
+              style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', background: ACCENT, color: ACCENT_TEXT }}
             >
               How to Install
             </button>
@@ -857,7 +981,7 @@ export default function App() {
                 ].map(({ step, text }) => (
                   <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{step}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT_TEXT }}>{step}</span>
                     </div>
                     <span style={{ fontSize: 14, color: TEXT, paddingTop: 4 }}>{text}</span>
                   </div>
@@ -870,7 +994,7 @@ export default function App() {
                 ].map(({ step, text }) => (
                   <div key={step} style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
                     <div style={{ width: 28, height: 28, borderRadius: '50%', background: ACCENT_BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{step}</span>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT_TEXT }}>{step}</span>
                     </div>
                     <span style={{ fontSize: 14, color: TEXT, paddingTop: 4 }}>{text}</span>
                   </div>
@@ -928,7 +1052,7 @@ export default function App() {
       </div>
 
       {/* ── Feeds section ── */}
-      <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} Icon={Milk} iconColor={ACCENT} iconBg={FEED_BG} />
+      <SectionHeader label="Feeds" show={showFeeds} onToggle={() => setShowFeeds(v => !v)} Icon={Milk} iconColor={ACCENT_TEXT} iconBg={FEED_BG} />
 
       {showFeeds && <>
       {/* Progress ring card */}
@@ -938,7 +1062,7 @@ export default function App() {
             <circle cx={pSize / 2} cy={pSize / 2} r={PR} fill="none" stroke={BORDER} strokeWidth={10} />
             <circle
               cx={pSize / 2} cy={pSize / 2} r={PR}
-              fill="none" stroke={progressFrac >= 1 ? GREEN : ACCENT} strokeWidth={10}
+              fill="none" stroke={progressFrac >= 1 ? GREEN : ACCENT_TEXT} strokeWidth={10}
               strokeLinecap="round"
               strokeDasharray={PCIRC}
               strokeDashoffset={progressOffset}
@@ -957,6 +1081,7 @@ export default function App() {
           </div>
           <div style={{ fontSize: 13, color: TEXT2, marginBottom: 8 }}>
             of {convert(recommendedDaily)}{unit} daily goal
+            <span style={{ fontSize: 11, color: TEXT2, marginLeft: 4 }}>({weights.length > 0 ? 'by weight' : 'by age'})</span>
           </div>
           <div style={{ fontSize: 13, color: TEXT2 }}>
             {todayFeeds.length} feed{todayFeeds.length !== 1 ? 's' : ''} today
@@ -991,15 +1116,19 @@ export default function App() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ width: 36, height: 36, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Droplet size={16} color={ACCENT} />
+                  <Droplet size={16} color={ACCENT_TEXT} />
                 </div>
                 <span style={{ fontSize: 15, fontWeight: 500, color: TEXT }}>
                   {new Date(feed.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                 </span>
               </div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: ACCENT }}>
-                {convert(feed.amount)}{unit}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: ACCENT_TEXT }}>{convert(feed.amount)}{unit}</span>
+                <button onClick={() => setEntryActionSheet({ type: 'feed', entry: feed })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                  <MoreHorizontal size={16} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1012,7 +1141,7 @@ export default function App() {
       </>}
 
       {/* ── Sleep section ── */}
-      <SectionHeader label="Sleep" show={showSleep} onToggle={() => setShowSleep(v => !v)} Icon={Moon} iconColor={ACCENT} iconBg={FEED_BG} />
+      <SectionHeader label="Sleep" show={showSleep} onToggle={() => setShowSleep(v => !v)} Icon={Moon} iconColor={ACCENT_TEXT} iconBg={FEED_BG} />
 
       {showSleep && <>
       {/* Sleep stats grid */}
@@ -1047,7 +1176,7 @@ export default function App() {
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <div style={{ width: 36, height: 36, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Sun size={16} color={ACCENT} />
+                    <Sun size={16} color={ACCENT_TEXT} />
                   </div>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 600, color: TEXT }}>
@@ -1056,13 +1185,19 @@ export default function App() {
                     <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{formatDuration(duration)}</div>
                   </div>
                 </div>
-                <span style={{
-                  fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                  background: onTrack ? PUMP_BG : OVER_BG,
-                  color: onTrack ? GREEN : RED,
-                }}>
-                  {onTrack ? 'On track' : 'Over window'}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                    background: onTrack ? PUMP_BG : OVER_BG,
+                    color: onTrack ? GREEN : RED,
+                  }}>
+                    {onTrack ? 'On track' : 'Over window'}
+                  </span>
+                  <button onClick={() => setEntryActionSheet({ type: 'sleep', entry: w })}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                    <MoreHorizontal size={16} />
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -1107,7 +1242,21 @@ export default function App() {
                   {new Date(d.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                 </span>
               </div>
-              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+                  {d.color && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginTop: 2 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: { yellow:'#F5C842', mustard:'#C8A415', brown:'#8B5E3C', green:'#4CAF50', orange:'#FF9500', black:'#2C2C2C', red:'#FF3B30', white:'#E5E5EA' }[d.color] || TEXT2, border: d.color === 'white' ? `1px solid ${BORDER}` : 'none' }} />
+                      <span style={{ fontSize: 11, color: TEXT2, textTransform: 'capitalize' }}>{d.color}</span>
+                    </div>
+                  )}
+                </div>
+                <button onClick={() => setEntryActionSheet({ type: 'diaper', entry: d })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                  <MoreHorizontal size={16} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1158,7 +1307,13 @@ export default function App() {
                   )}
                 </div>
               </div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 16, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+                <button onClick={() => setEntryActionSheet({ type: 'pump', entry: p })}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                  <MoreHorizontal size={16} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -1179,8 +1334,8 @@ export default function App() {
           <>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
               {[
-                { value: todayW.length > 0 ? `${todayW[todayW.length - 1].grams}g` : '—', label: "Today's weight" },
-                { value: latestWeight ? `${latestWeight.grams}g` : '—', label: 'Last recorded' },
+                { value: todayW.length > 0 ? `${(todayW[todayW.length - 1].grams / 1000).toFixed(2)}kg` : '—', label: "Today's weight" },
+                { value: latestWeight ? `${(latestWeight.grams / 1000).toFixed(2)}kg` : '—', label: 'Last recorded' },
               ].map(({ value, label }) => (
                 <div key={label} style={{ background: CARD, borderRadius: 14, padding: '12px 10px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
                   <div style={{ fontSize: 18, fontWeight: 700, color: WEIGHT_COLOR, letterSpacing: -0.5, marginBottom: 3 }}>{value}</div>
@@ -1198,7 +1353,13 @@ export default function App() {
                       </div>
                       <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>{new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
                     </div>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: WEIGHT_COLOR }}>{w.grams}g</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 15, fontWeight: 700, color: WEIGHT_COLOR }}>{(w.grams / 1000).toFixed(2)}kg</span>
+                      <button onClick={() => setEntryActionSheet({ type: 'weight', entry: w })}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                        <MoreHorizontal size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1242,7 +1403,13 @@ export default function App() {
                         {m.dose && <div style={{ fontSize: 12, color: TEXT2, marginTop: 1 }}>{m.dose}</div>}
                       </div>
                     </div>
-                    <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>{new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>{new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}</span>
+                      <button onClick={() => setEntryActionSheet({ type: 'medicine', entry: m })}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                        <MoreHorizontal size={16} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1293,7 +1460,7 @@ export default function App() {
 
         return (
           <>
-            <SectionHeader label="Previous Days" show={showPreviousDays} onToggle={() => setShowPreviousDays(p => !p)} Icon={BarChart2} iconColor={ACCENT} iconBg={ACCENT_BG} />
+            <SectionHeader label="Previous Days" show={showPreviousDays} onToggle={() => setShowPreviousDays(p => !p)} Icon={BarChart2} iconColor={ACCENT_TEXT} iconBg={ACCENT_BG} />
             {showPreviousDays && allPastKeys.map((dateKey) => {
               const dayFeeds = feeds.filter(f => new Date(f.timestamp).toLocaleDateString('en-US', { year: 'numeric', month: '2-digit', day: '2-digit' }) === dateKey);
               const dayWW = wwByDay[dateKey] || [];
@@ -1350,13 +1517,19 @@ export default function App() {
                             }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                 <div style={{ width: 30, height: 30, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                  <Droplet size={13} color={ACCENT} />
+                                  <Droplet size={13} color={ACCENT_TEXT} />
                                 </div>
                                 <span style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
                                   {new Date(feed.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                                 </span>
                               </div>
-                              <span style={{ fontSize: 15, fontWeight: 700, color: ACCENT }}>{convert(feed.amount)}{unit}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: ACCENT_TEXT }}>{convert(feed.amount)}{unit}</span>
+                                <button onClick={() => setEntryActionSheet({ type: 'feed', entry: feed })}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                                  <MoreHorizontal size={14} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </>
@@ -1377,7 +1550,7 @@ export default function App() {
                               }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                   <div style={{ width: 30, height: 30, borderRadius: '50%', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Sun size={13} color={ACCENT} />
+                                    <Sun size={13} color={ACCENT_TEXT} />
                                   </div>
                                   <div>
                                     <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>
@@ -1386,13 +1559,19 @@ export default function App() {
                                     <div style={{ fontSize: 11, color: TEXT2 }}>{formatDuration(duration)}</div>
                                   </div>
                                 </div>
-                                <span style={{
-                                  fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
-                                  background: onTrack ? PUMP_BG : OVER_BG,
-                                  color: onTrack ? GREEN : RED,
-                                }}>
-                                  {onTrack ? 'On track' : 'Over window'}
-                                </span>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                  <span style={{
+                                    fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20,
+                                    background: onTrack ? PUMP_BG : OVER_BG,
+                                    color: onTrack ? GREEN : RED,
+                                  }}>
+                                    {onTrack ? 'On track' : 'Over window'}
+                                  </span>
+                                  <button onClick={() => setEntryActionSheet({ type: 'sleep', entry: w })}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                                    <MoreHorizontal size={14} />
+                                  </button>
+                                </div>
                               </div>
                             );
                           })}
@@ -1417,7 +1596,21 @@ export default function App() {
                                   {new Date(d.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                                 </span>
                               </div>
-                              <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div style={{ textAlign: 'right' }}>
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: TEXT2, textTransform: 'capitalize' }}>{d.type}</span>
+                                  {d.color && (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginTop: 2 }}>
+                                      <div style={{ width: 10, height: 10, borderRadius: '50%', background: { yellow:'#F5C842', mustard:'#C8A415', brown:'#8B5E3C', green:'#4CAF50', orange:'#FF9500', black:'#2C2C2C', red:'#FF3B30', white:'#E5E5EA' }[d.color] || TEXT2, border: d.color === 'white' ? `1px solid ${BORDER}` : 'none' }} />
+                                      <span style={{ fontSize: 11, color: TEXT2, textTransform: 'capitalize' }}>{d.color}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                <button onClick={() => setEntryActionSheet({ type: 'diaper', entry: d })}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                                  <MoreHorizontal size={14} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </>
@@ -1448,7 +1641,13 @@ export default function App() {
                                   )}
                                 </div>
                               </div>
-                              <span style={{ fontSize: 15, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <span style={{ fontSize: 15, fontWeight: 700, color: GREEN }}>{convert(p.amount)}{unit}</span>
+                                <button onClick={() => setEntryActionSheet({ type: 'pump', entry: p })}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', color: TEXT2, display: 'flex', alignItems: 'center', borderRadius: 6 }}>
+                                  <MoreHorizontal size={14} />
+                                </button>
+                              </div>
                             </div>
                           ))}
                         </>
@@ -1596,7 +1795,7 @@ export default function App() {
           <div style={{ fontSize: 48, marginBottom: 16 }}>📏</div>
           <div style={{ fontSize: 17, fontWeight: 600, color: TEXT, marginBottom: 8 }}>Add your baby's date of birth</div>
           <div style={{ fontSize: 14, color: TEXT2, marginBottom: 24, lineHeight: 1.5 }}>Set your baby's birthday in Settings to see CDC growth percentile charts.</div>
-          <button onClick={() => setActiveTab('settings')} style={{ background: ACCENT, color: 'white', border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
+          <button onClick={() => setActiveTab('settings')} style={{ background: ACCENT, color: ACCENT_TEXT, border: 'none', borderRadius: 12, padding: '12px 28px', fontSize: 15, fontWeight: 700, cursor: 'pointer' }}>
             Go to Settings
           </button>
         </div>
@@ -1619,7 +1818,7 @@ export default function App() {
               <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Latest weight</div>
             </div>
             <div style={{ background: CARD, borderRadius: 14, padding: '14px 12px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: ACCENT, marginBottom: 3 }}>
+              <div style={{ fontSize: 20, fontWeight: 700, color: ACCENT_TEXT, marginBottom: 3 }}>
                 {ordinal(currentPercentile)}
               </div>
               <div style={{ fontSize: 11, color: TEXT2, fontWeight: 500 }}>Weight percentile</div>
@@ -1646,12 +1845,12 @@ export default function App() {
                 strokeWidth={col === 5 ? 1.5 : 1} strokeOpacity={opacity} />
             ))}
             {babyPoints.length > 1 && (
-              <polyline points={babyLine} fill="none" stroke={ACCENT}
+              <polyline points={babyLine} fill="none" stroke={ACCENT_TEXT}
                 strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
             )}
             {babyPoints.map((p, i) => (
               <circle key={i} cx={xOf(p.ageMonths)} cy={yOf(p.weightKg)} r={4.5}
-                fill={ACCENT} stroke={CARD} strokeWidth={2} />
+                fill={ACCENT_TEXT} stroke={CARD} strokeWidth={2} />
             ))}
           </svg>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 6, flexWrap: 'wrap' }}>
@@ -1662,7 +1861,7 @@ export default function App() {
               </div>
             ))}
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <div style={{ width: 14, height: 3, background: ACCENT, borderRadius: 1 }} />
+              <div style={{ width: 14, height: 3, background: ACCENT_TEXT, borderRadius: 1 }} />
               <span style={{ fontSize: 10, color: TEXT2 }}>{babyName || 'Baby'}</span>
             </div>
           </div>
@@ -1692,7 +1891,7 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: ACCENT_TEXT }}>
                       {toSubP(pct)}
                     </div>
                     <div style={{ fontSize: 11, color: TEXT2, marginTop: 1 }}>
@@ -1711,7 +1910,7 @@ export default function App() {
   if (splashVisible) return (
     <div style={{
       position: 'fixed', inset: 0, zIndex: 9999,
-      background: '#5856D6',
+      background: ACCENT,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       opacity: splashFading ? 0 : 1,
       transition: 'opacity 0.55s ease',
@@ -1730,19 +1929,21 @@ export default function App() {
         .splash-tagline { opacity: 0; animation: splashTagline 0.4s ease 0.45s forwards; }
       `}</style>
       <div className="splash-inner" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <div style={{
-          width: 96, height: 96, borderRadius: 24,
-          background: 'rgba(255,255,255,0.18)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          marginBottom: 24,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
-        }}>
-          <img src="/favicon.svg" alt="TeamBaby" style={{ width: 60, height: 60 }} />
-        </div>
-        <div style={{ fontSize: 34, fontWeight: 800, color: '#FFFFFF', letterSpacing: -1, marginBottom: 8 }}>TeamBaby</div>
+        <svg width="140" height="140" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" style={{ marginBottom: 20 }}>
+          <path d="M 52 13 L 30 18 Q 17 21 17 34 L 17 56 Q 20 70 50 82 Q 80 70 83 56 L 83 34 Q 83 24 71 20 L 64 16"
+            fill="none" stroke="white" strokeWidth="5.5" strokeLinecap="round" strokeLinejoin="round"/>
+          <circle cx="50" cy="57" r="19" fill="white"/>
+          <path d="M 46 38 Q 50 33 54 38" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
+          <path d="M 42 53 Q 44.5 50 47 53" fill="none" stroke="#6BAFC5" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M 53 53 Q 55.5 50 58 53" fill="none" stroke="#6BAFC5" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M 43 62 Q 50 68 57 62" fill="none" stroke="#6BAFC5" strokeWidth="2.5" strokeLinecap="round"/>
+          <path d="M 55 22 L 56.5 26.5 L 61 28 L 56.5 29.5 L 55 34 L 53.5 29.5 L 49 28 L 53.5 26.5 Z" fill="white"/>
+          <path d="M 75 10 L 77.5 17.5 L 85 20 L 77.5 22.5 L 75 30 L 72.5 22.5 L 65 20 L 72.5 17.5 Z" fill="white"/>
+        </svg>
+        <div style={{ fontSize: 40, fontWeight: 800, color: '#FFFFFF', letterSpacing: -1, marginBottom: 6 }}>TeamBaby</div>
       </div>
-      <div className="splash-tagline" style={{ fontSize: 15, color: 'rgba(255,255,255,0.75)', fontWeight: 500, letterSpacing: 0.2 }}>
-        Track. Feed. Thrive.
+      <div className="splash-tagline" style={{ fontSize: 15, color: 'rgba(255,255,255,0.82)', fontWeight: 400, letterSpacing: 0.1 }}>
+        Track feeds, wake windows &amp; more
       </div>
     </div>
   );
@@ -1756,7 +1957,7 @@ export default function App() {
       <div style={{ width: '100%', background: CARD, borderRadius: 20, padding: '24px 20px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', marginBottom: 16 }}>
         <p style={{ margin: '0 0 14px', fontSize: 13, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>New family</p>
         <p style={{ margin: '0 0 16px', fontSize: 14, color: TEXT2, lineHeight: 1.5 }}>Set up tracking for your baby. You'll get an invite code to share with your partner.</p>
-        <button onClick={createRoom} disabled={roomLoading} style={{ width: '100%', padding: '14px', background: roomLoading ? BORDER : ACCENT, color: 'white', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: roomLoading ? 'default' : 'pointer' }}>
+        <button onClick={createRoom} disabled={roomLoading} style={{ width: '100%', padding: '14px', background: roomLoading ? BORDER : ACCENT, color: roomLoading ? TEXT2 : ACCENT_TEXT, border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: roomLoading ? 'default' : 'pointer' }}>
           {roomLoading ? 'Setting up…' : 'Get Started'}
         </button>
         {roomError && <p style={{ margin: '10px 0 0', fontSize: 13, color: RED }}>{roomError}</p>}
@@ -1809,7 +2010,7 @@ export default function App() {
       {quickLogModal && (
         <div
           style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
-          onClick={() => setQuickLogModal(null)}
+          onClick={() => { setQuickLogModal(null); setEditingEntry(null); setLogDate(''); setLogTime(''); }}
         >
           <div
             style={{ background: CARD, borderRadius: '20px 20px 0 0', padding: '16px 20px 40px', maxWidth: 430, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}
@@ -1818,16 +2019,24 @@ export default function App() {
             {/* Handle */}
             <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: '0 auto 20px' }} />
 
-            {/* Shared time picker */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: BG, borderRadius: 10, marginBottom: 20 }}>
-              <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Time</span>
-              <input type="time" value={logTime} onChange={e => setLogTime(e.target.value)}
-                style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 600, color: TEXT, outline: 'none', cursor: 'pointer' }} />
-            </div>
+            {/* Shared date + time picker (not shown for sleep which has its own) */}
+            {quickLogModal !== 'sleep' && <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: BG, borderRadius: 10 }}>
+                <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Date</span>
+                <input type="date" value={logDate} onChange={e => setLogDate(e.target.value)}
+                  max={new Date().toISOString().split('T')[0]}
+                  style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 600, color: TEXT, outline: 'none', cursor: 'pointer' }} />
+              </div>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: BG, borderRadius: 10 }}>
+                <span style={{ fontSize: 13, color: TEXT2, fontWeight: 500 }}>Time</span>
+                <input type="time" value={logTime} onChange={e => setLogTime(e.target.value)}
+                  style={{ border: 'none', background: 'none', fontSize: 15, fontWeight: 600, color: TEXT, outline: 'none', cursor: 'pointer' }} />
+              </div>
+            </div>}
 
             {quickLogModal === 'feed' && (
               <>
-                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Feed</h3>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'feed' ? 'Edit Feed' : 'Log a Feed'}</h3>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
                   {quickLogAmounts.map((amount, i) => (
                     <button key={amount} onClick={() => { logFeed(amount); setQuickLogModal(null); }} style={{
@@ -1835,11 +2044,11 @@ export default function App() {
                       border: i === 1 ? 'none' : `1.5px solid ${BORDER}`,
                       borderRadius: 14, fontSize: 17, fontWeight: 700,
                       background: i === 1 ? ACCENT : CARD,
-                      color: i === 1 ? 'white' : TEXT,
+                      color: i === 1 ? ACCENT_TEXT : TEXT,
                       display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
                     }}>
                       {convert(amount)}{unit}
-                      <span style={{ fontSize: 11, fontWeight: 500, color: i === 1 ? 'rgba(255,255,255,0.75)' : TEXT2 }}>
+                      <span style={{ fontSize: 11, fontWeight: 500, color: i === 1 ? 'rgba(26,106,133,0.7)' : TEXT2 }}>
                         {i === 0 ? 'Less' : i === 1 ? 'Suggested' : 'More'}
                       </span>
                     </button>
@@ -1859,7 +2068,7 @@ export default function App() {
                     style={{
                       padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
                       cursor: customAmount ? 'pointer' : 'not-allowed',
-                      background: customAmount ? ACCENT : BORDER, color: 'white', opacity: customAmount ? 1 : 0.55,
+                      background: customAmount ? ACCENT : BORDER, color: customAmount ? ACCENT_TEXT : TEXT2, opacity: customAmount ? 1 : 0.55,
                     }}
                   >Log</button>
                 </div>
@@ -1877,7 +2086,7 @@ export default function App() {
                         { value: convert(calculateFormula(unit === 'ml' ? recommended : ozToMl(recommended)).water), label: `${unit} Water` },
                       ].map(({ value, label }) => (
                         <div key={label} style={{ background: BG, borderRadius: 12, padding: '14px', textAlign: 'center' }}>
-                          <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT, marginBottom: 2 }}>{value}</div>
+                          <div style={{ fontSize: 26, fontWeight: 700, color: ACCENT_TEXT, marginBottom: 2 }}>{value}</div>
                           <div style={{ fontSize: 11, color: TEXT2, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</div>
                         </div>
                       ))}
@@ -1888,34 +2097,118 @@ export default function App() {
               </>
             )}
 
-            {quickLogModal === 'diaper' && (
-              <>
-                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Diaper</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-                  {[
-                    { type: 'wet', label: 'Wet', emoji: '💧' },
-                    { type: 'dirty', label: 'Dirty', emoji: '💩' },
-                    { type: 'both', label: 'Both', emoji: '💧💩' },
-                  ].map(({ type, label, emoji }) => (
-                    <button key={type} onClick={() => logDiaper(type)} style={{
-                      padding: '20px 8px', border: `1.5px solid ${BORDER}`, borderRadius: 14,
-                      cursor: 'pointer', background: CARD, display: 'flex', flexDirection: 'column',
-                      alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: TEXT,
-                    }}>
-                      <span style={{ fontSize: 28 }}>{emoji}</span>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
+            {quickLogModal === 'sleep' && (() => {
+              const canLog = sleepStartDate && sleepStartTime && sleepEndDate && sleepEndTime
+                && new Date(`${sleepEndDate}T${sleepEndTime}`) > new Date(`${sleepStartDate}T${sleepStartTime}`);
+              const today = new Date().toISOString().split('T')[0];
+              const fieldStyle = { width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD };
+              return (
+                <>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'sleep' ? 'Edit Wake Window' : 'Log Sleep'}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Wake date</div>
+                      <input type="date" value={sleepStartDate} max={today} onChange={e => setSleepStartDate(e.target.value)} style={fieldStyle} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Wake time</div>
+                      <input type="time" value={sleepStartTime} onChange={e => setSleepStartTime(e.target.value)} style={fieldStyle} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Sleep date</div>
+                      <input type="date" value={sleepEndDate} max={today} onChange={e => setSleepEndDate(e.target.value)} style={fieldStyle} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Sleep time</div>
+                      <input type="time" value={sleepEndTime} onChange={e => setSleepEndTime(e.target.value)} style={fieldStyle} />
+                    </div>
+                  </div>
+                  {canLog && (() => {
+                    const ms = new Date(`${sleepEndDate}T${sleepEndTime}`) - new Date(`${sleepStartDate}T${sleepStartTime}`);
+                    const totalMin = Math.floor(ms / 60000);
+                    const h = Math.floor(totalMin / 60), m = totalMin % 60;
+                    return <div style={{ textAlign: 'center', fontSize: 13, color: TEXT2, marginBottom: 12 }}>Wake window: <span style={{ fontWeight: 700, color: ACCENT_TEXT }}>{h > 0 ? `${h}h ` : ''}{m}m</span></div>;
+                  })()}
+                  <button onClick={logSleepWindow} disabled={!canLog} style={{
+                    width: '100%', padding: '13px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                    cursor: canLog ? 'pointer' : 'not-allowed', background: canLog ? ACCENT : BORDER, color: canLog ? ACCENT_TEXT : TEXT2, opacity: canLog ? 1 : 0.55,
+                  }}>Log Wake Window</button>
+                </>
+              );
+            })()}
+
+            {quickLogModal === 'diaper' && (() => {
+              const POOP_COLORS = [
+                { id: 'yellow',   label: 'Yellow',   hex: '#F5C842', note: 'Normal (breastfed)' },
+                { id: 'mustard',  label: 'Mustard',  hex: '#C8A415', note: 'Normal' },
+                { id: 'brown',    label: 'Brown',    hex: '#8B5E3C', note: 'Normal (formula)' },
+                { id: 'green',    label: 'Green',    hex: '#4CAF50', note: 'Foremilk / diet' },
+                { id: 'orange',   label: 'Orange',   hex: '#FF9500', note: 'Normal variation' },
+                { id: 'black',    label: 'Black',    hex: '#2C2C2C', note: 'Meconium / iron' },
+                { id: 'red',      label: 'Red',      hex: '#FF3B30', note: 'See doctor' },
+                { id: 'white',    label: 'White',    hex: '#E5E5EA', note: 'See doctor' },
+              ];
+              const needsDirty = diaperPendingType === 'dirty' || diaperPendingType === 'both';
+              return (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                    {diaperPendingType && (
+                      <button onClick={() => setDiaperPendingType(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: TEXT2, fontSize: 20, lineHeight: 1, padding: 0 }}>‹</button>
+                    )}
+                    <h3 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: TEXT }}>
+                      {needsDirty ? 'Poop colour?' : editingEntry?.type === 'diaper' ? 'Edit Diaper' : 'Log a Diaper'}
+                    </h3>
+                  </div>
+
+                  {!diaperPendingType && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                      {[
+                        { type: 'wet',   label: 'Wet',  emoji: '💧' },
+                        { type: 'dirty', label: 'Dirty', emoji: '💩' },
+                        { type: 'both',  label: 'Both', emoji: '💧💩' },
+                      ].map(({ type, label, emoji }) => (
+                        <button key={type} onClick={() => type === 'wet' ? logDiaper(type) : setDiaperPendingType(type)} style={{
+                          padding: '20px 8px', border: `1.5px solid ${BORDER}`, borderRadius: 14,
+                          cursor: 'pointer', background: CARD, display: 'flex', flexDirection: 'column',
+                          alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: TEXT,
+                        }}>
+                          <span style={{ fontSize: 28 }}>{emoji}</span>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {needsDirty && (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginBottom: 12 }}>
+                        {POOP_COLORS.map(({ id, label, hex, note }) => (
+                          <button key={id} onClick={() => logDiaper(diaperPendingType, id)} style={{
+                            padding: '12px 4px', border: `1.5px solid ${BORDER}`, borderRadius: 12,
+                            cursor: 'pointer', background: CARD, display: 'flex', flexDirection: 'column',
+                            alignItems: 'center', gap: 6,
+                          }}>
+                            <div style={{ width: 28, height: 28, borderRadius: '50%', background: hex, border: id === 'white' ? `1.5px solid ${BORDER}` : 'none' }} />
+                            <span style={{ fontSize: 11, fontWeight: 600, color: TEXT }}>{label}</span>
+                          </button>
+                        ))}
+                      </div>
+                      <button onClick={() => logDiaper(diaperPendingType)} style={{
+                        width: '100%', padding: '11px', border: `1.5px solid ${BORDER}`, borderRadius: 10,
+                        fontSize: 14, fontWeight: 600, color: TEXT2, background: 'none', cursor: 'pointer',
+                      }}>Skip colour</button>
+                    </>
+                  )}
+                </>
+              );
+            })()}
 
             {quickLogModal === 'pump' && (() => {
               const hasAny = pumpLeft || pumpRight;
               const totalPreview = (parseFloat(pumpLeft) || 0) + (parseFloat(pumpRight) || 0);
               return (
                 <>
-                  <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log a Pump</h3>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'pump' ? 'Edit Pump' : 'Log a Pump'}</h3>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
                     {[
                       { side: 'L', label: 'Left breast', val: pumpLeft, set: setPumpLeft },
@@ -1954,33 +2247,43 @@ export default function App() {
               );
             })()}
 
-            {quickLogModal === 'weight' && (
-              <>
-                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log Weight</h3>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input
-                    type="number"
-                    placeholder="Weight (g)"
-                    value={weightInput}
-                    onChange={(e) => setWeightInput(e.target.value)}
-                    style={{ flex: 1, padding: '12px 14px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, outline: 'none', color: TEXT, background: CARD }}
-                  />
-                  <button
-                    onClick={() => { if (weightInput) logWeight(parseFloat(weightInput)); }}
-                    disabled={!weightInput}
-                    style={{
-                      padding: '12px 22px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
-                      cursor: weightInput ? 'pointer' : 'not-allowed',
-                      background: weightInput ? WEIGHT_COLOR : BORDER, color: 'white', opacity: weightInput ? 1 : 0.55,
-                    }}
-                  >Log</button>
-                </div>
-              </>
-            )}
+            {quickLogModal === 'weight' && (() => {
+              const totalGrams = (parseInt(weightInput) || 0) * 1000 + (parseInt(weightG) || 0);
+              const canLog = totalGrams > 0;
+              return (
+                <>
+                  <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'weight' ? 'Edit Weight' : 'Log Weight'}</h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+                    {[
+                      { label: 'Kilograms', placeholder: '0', value: weightInput, set: setWeightInput },
+                      { label: 'Grams', placeholder: '0', value: weightG, set: setWeightG },
+                    ].map(({ label, placeholder, value, set }) => (
+                      <div key={label}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</div>
+                        <div style={{ position: 'relative' }}>
+                          <input type="number" placeholder={placeholder} value={value} onChange={e => set(e.target.value)}
+                            style={{ width: '100%', padding: '12px 36px 12px 14px', border: `1.5px solid ${value ? WEIGHT_COLOR : BORDER}`, borderRadius: 10, fontSize: 18, fontWeight: 700, outline: 'none', color: TEXT, background: CARD, boxSizing: 'border-box' }} />
+                          <span style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: TEXT2 }}>{label === 'Kilograms' ? 'kg' : 'g'}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {canLog && (
+                    <div style={{ textAlign: 'center', fontSize: 13, color: TEXT2, marginBottom: 12 }}>
+                      Total: <span style={{ fontWeight: 700, color: WEIGHT_COLOR }}>{(totalGrams / 1000).toFixed(3).replace(/\.?0+$/, '')}kg ({totalGrams}g)</span>
+                    </div>
+                  )}
+                  <button onClick={() => { if (canLog) logWeight(totalGrams); }} disabled={!canLog} style={{
+                    width: '100%', padding: '13px', border: 'none', borderRadius: 10, fontSize: 15, fontWeight: 700,
+                    cursor: canLog ? 'pointer' : 'not-allowed', background: canLog ? WEIGHT_COLOR : BORDER, color: 'white', opacity: canLog ? 1 : 0.55,
+                  }}>Log</button>
+                </>
+              );
+            })()}
 
             {quickLogModal === 'medicine' && (
               <>
-                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>Log Medicine</h3>
+                <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'medicine' ? 'Edit Medicine' : 'Log Medicine'}</h3>
                 <input
                   type="text"
                   placeholder="Medicine name (e.g. Vitamin D)"
@@ -2012,6 +2315,53 @@ export default function App() {
         </div>
       )}
 
+      {/* Entry action sheet */}
+      {entryActionSheet && (() => {
+        const { type, entry } = entryActionSheet;
+        const title = type === 'feed' ? 'Feed'
+          : type === 'sleep' ? 'Wake Window'
+          : type === 'diaper' ? 'Diaper'
+          : type === 'pump' ? 'Pump Session'
+          : type === 'weight' ? 'Weight'
+          : 'Medicine';
+        const summary = type === 'feed'
+          ? `${convert(entry.amount)}${unit} · ${new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          : type === 'sleep'
+          ? `${new Date(entry.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(entry.end).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          : type === 'diaper'
+          ? `${entry.type.charAt(0).toUpperCase() + entry.type.slice(1)}${entry.color ? ` · ${entry.color}` : ''} · ${new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          : type === 'pump'
+          ? `${convert(entry.amount)}${unit} total · ${new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          : type === 'weight'
+          ? `${(entry.grams / 1000).toFixed(3).replace(/\.?0+$/, '')}kg · ${new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          : `${entry.name}${entry.dose ? ` · ${entry.dose}` : ''} · ${new Date(entry.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`;
+        return (
+          <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}
+            onClick={() => setEntryActionSheet(null)}>
+            <div style={{ background: CARD, borderRadius: '20px 20px 0 0', padding: '16px 20px 40px', maxWidth: 430, width: '100%', margin: '0 auto', boxSizing: 'border-box' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ width: 36, height: 4, background: BORDER, borderRadius: 2, margin: '0 auto 20px' }} />
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 17, fontWeight: 700, color: TEXT, marginBottom: 4 }}>{title}</div>
+                <div style={{ fontSize: 14, color: TEXT2 }}>{summary}</div>
+              </div>
+              <button onClick={() => openEditEntry(type, entry)}
+                style={{ width: '100%', padding: '14px', border: `1.5px solid ${BORDER}`, borderRadius: 12, fontSize: 15, fontWeight: 600, background: CARD, color: TEXT, marginBottom: 10, cursor: 'pointer' }}>
+                Edit Entry
+              </button>
+              <button onClick={() => deleteEntry(type, entry)}
+                style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, background: RED, color: 'white', cursor: 'pointer' }}>
+                Delete Entry
+              </button>
+              <button onClick={() => setEntryActionSheet(null)}
+                style={{ width: '100%', padding: '14px', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 600, background: 'none', color: TEXT2, cursor: 'pointer' }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Bottom tab bar */}
       <div style={{
         position: 'fixed',
@@ -2032,7 +2382,7 @@ export default function App() {
           <button key={id} onClick={() => setActiveTab(id)} style={{
             flex: 1, padding: '10px 0 8px', border: 'none', background: 'none', cursor: 'pointer',
             display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-            color: activeTab === id ? ACCENT : TEXT2,
+            color: activeTab === id ? ACCENT_TEXT : TEXT2,
           }}>
             <Icon size={23} strokeWidth={activeTab === id ? 2.5 : 1.75} />
             <span style={{ fontSize: 11, fontWeight: activeTab === id ? 700 : 500 }}>{label}</span>

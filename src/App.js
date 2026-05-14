@@ -892,9 +892,12 @@ export default function App() {
               </span>
             )}
           </div>
-          <div style={{ overflow: 'hidden', borderRadius: 10 }}>
+          <div style={{ position: 'relative', height: 44 }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, border: `1.5px solid ${BORDER}`, borderRadius: 10, background: CARD, display: 'flex', alignItems: 'center', paddingLeft: 12, fontSize: 15, fontWeight: 600, color: babyDOB ? TEXT : TEXT2, pointerEvents: 'none' }}>
+              {babyDOB ? new Date(babyDOB + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Tap to set date of birth'}
+            </div>
             <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
-              style={{ display: 'block', width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+              style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', fontSize: 16, border: 'none', background: 'transparent' }} />
           </div>
           {!babyDOB && (
             <div style={{ marginTop: 12 }}>

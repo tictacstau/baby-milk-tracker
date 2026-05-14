@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp, MoreHorizontal } from 'lucide-react';
 import { db } from './firebase';
-import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot, updateDoc, arrayRemove } from 'firebase/firestore';
 
 const notifSupported = typeof Notification !== 'undefined';
 const ua = navigator.userAgent;
@@ -533,24 +533,25 @@ export default function App() {
   };
 
   const deleteEntry = (type, entry) => {
+    const roomRef = doc(db, 'rooms', roomCode);
     if (type === 'feed') {
-      const updated = feeds.filter(f => f.timestamp !== entry.timestamp);
-      setFeeds(updated); syncRoom(roomCode, { feeds: updated });
+      setFeeds(prev => prev.filter(f => f.timestamp !== entry.timestamp));
+      updateDoc(roomRef, { feeds: arrayRemove(entry) }).catch(console.error);
     } else if (type === 'diaper') {
-      const updated = diapers.filter(d => d.timestamp !== entry.timestamp);
-      setDiapers(updated); syncRoom(roomCode, { diapers: updated });
+      setDiapers(prev => prev.filter(d => d.timestamp !== entry.timestamp));
+      updateDoc(roomRef, { diapers: arrayRemove(entry) }).catch(console.error);
     } else if (type === 'sleep') {
-      const updated = wakeWindows.filter(w => w.start !== entry.start);
-      setWakeWindows(updated); syncRoom(roomCode, { wakeWindows: updated });
+      setWakeWindows(prev => prev.filter(w => w.start !== entry.start));
+      updateDoc(roomRef, { wakeWindows: arrayRemove(entry) }).catch(console.error);
     } else if (type === 'pump') {
-      const updated = pumps.filter(p => p.timestamp !== entry.timestamp);
-      setPumps(updated); syncRoom(roomCode, { pumps: updated });
+      setPumps(prev => prev.filter(p => p.timestamp !== entry.timestamp));
+      updateDoc(roomRef, { pumps: arrayRemove(entry) }).catch(console.error);
     } else if (type === 'weight') {
-      const updated = weights.filter(w => w.timestamp !== entry.timestamp);
-      setWeights(updated); syncRoom(roomCode, { weights: updated });
+      setWeights(prev => prev.filter(w => w.timestamp !== entry.timestamp));
+      updateDoc(roomRef, { weights: arrayRemove(entry) }).catch(console.error);
     } else if (type === 'medicine') {
-      const updated = medicines.filter(m => m.timestamp !== entry.timestamp);
-      setMedicines(updated); syncRoom(roomCode, { medicines: updated });
+      setMedicines(prev => prev.filter(m => m.timestamp !== entry.timestamp));
+      updateDoc(roomRef, { medicines: arrayRemove(entry) }).catch(console.error);
     }
     setEntryActionSheet(null);
   };
@@ -858,48 +859,49 @@ export default function App() {
 
       {/* Baby info */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby Profile</p>
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
-          <input type="text" placeholder="e.g. Liam" value={babyName} onChange={(e) => setBabyName(e.target.value)}
-            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Gender</label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            {['boy', 'girl'].map(g => (
-              <button key={g} onClick={() => setBabyGender(g)} style={{
-                flex: 1, height: 44, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
-                cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? ACCENT_TEXT : TEXT2,
-              }}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Date of Birth</label>
-          <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
-            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
-        </div>
-        {!babyDOB && (
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
-            <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+        <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
+            <input type="text" placeholder="e.g. Liam" value={babyName} onChange={(e) => setBabyName(e.target.value)}
               style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
           </div>
-        )}
-        {babyDOB && (
-          <div>
-            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age</label>
-            <div style={{ height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, color: TEXT, background: BG, display: 'flex', alignItems: 'center' }}>
-              {(() => {
-                const months = Math.floor(effectiveAge / 4.345);
-                const remWeeks = effectiveAge - Math.round(months * 4.345);
-                if (months === 0) return `${effectiveAge}w`;
-                return remWeeks > 0 ? `${months}m ${remWeeks}w` : `${months}m`;
-              })()}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Gender</label>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {['boy', 'girl'].map(g => (
+                <button key={g} onClick={() => setBabyGender(g)} style={{
+                  flex: 1, height: 44, border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 700,
+                  cursor: 'pointer', background: babyGender === g ? ACCENT : BG, color: babyGender === g ? ACCENT_TEXT : TEXT2,
+                }}>{g.charAt(0).toUpperCase() + g.slice(1)}</button>
+              ))}
             </div>
           </div>
-        )}
+        </div>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5 }}>Date of Birth</label>
+            {babyDOB && (
+              <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT_TEXT }}>
+                {(() => {
+                  const months = Math.floor(effectiveAge / 4.345);
+                  const remWeeks = effectiveAge - Math.round(months * 4.345);
+                  if (months === 0) return `${effectiveAge}w old`;
+                  return remWeeks > 0 ? `${months}m ${remWeeks}w old` : `${months}m old`;
+                })()}
+              </span>
+            )}
+          </div>
+          <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
+            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+          {!babyDOB && (
+            <div style={{ marginTop: 12 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>
+              <input type="number" value={babyAge || ''} onChange={(e) => setBabyAge(parseInt(e.target.value) || 0)}
+                style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 16, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Units */}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'teambaby-v1';
+const CACHE_NAME = 'teambaby-v2';
 const FIREBASE_HOSTS = [
   'firestore.googleapis.com',
   'firebase.googleapis.com',

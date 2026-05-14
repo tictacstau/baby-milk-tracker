@@ -859,7 +859,7 @@ export default function App() {
 
       {/* Baby info */}
       <p style={{ margin: '0 0 10px', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.6 }}>Baby Profile</p>
-      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <div style={{ background: CARD, borderRadius: 16, padding: '16px 20px', marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.06)', overflow: 'hidden' }}>
         <div style={{ display: 'flex', gap: 16, marginBottom: 16 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Name</label>
@@ -892,8 +892,10 @@ export default function App() {
               </span>
             )}
           </div>
-          <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
-            style={{ width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+          <div style={{ overflow: 'hidden', borderRadius: 10 }}>
+            <input type="date" value={babyDOB} onChange={(e) => setBabyDOB(e.target.value)}
+              style={{ display: 'block', width: '100%', height: 44, padding: '0 12px', border: `1.5px solid ${BORDER}`, borderRadius: 10, fontSize: 15, fontWeight: 600, outline: 'none', boxSizing: 'border-box', color: TEXT, background: CARD }} />
+          </div>
           {!babyDOB && (
             <div style={{ marginTop: 12 }}>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: TEXT2, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 }}>Age (weeks)</label>

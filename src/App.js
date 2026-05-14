@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp, MoreHorizontal } from 'lucide-react';
+import { Home, Milk, BarChart2, Droplet, ChevronDown, ChevronUp, Moon, Sun, Wind, Activity, Bell, BellOff, Settings, Scale, Pill, TrendingUp, MoreHorizontal, Info } from 'lucide-react';
 import { db } from './firebase';
 import { doc, setDoc, onSnapshot, updateDoc, arrayRemove } from 'firebase/firestore';
 
@@ -2044,7 +2044,7 @@ export default function App() {
             {quickLogModal === 'feed' && (
               <>
                 <h3 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700, color: TEXT }}>{editingEntry?.type === 'feed' ? 'Edit Feed' : 'Log a Feed'}</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 14 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 8 }}>
                   {quickLogAmounts.map((amount, i) => (
                     <button key={amount} onClick={() => { logFeed(amount); setQuickLogModal(null); }} style={{
                       padding: '18px 8px', cursor: 'pointer',
@@ -2060,6 +2060,16 @@ export default function App() {
                       </span>
                     </button>
                   ))}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 5, marginBottom: 14 }}>
+                  <Info size={12} color={TEXT2} />
+                  <span style={{ fontSize: 12, color: TEXT2 }}>
+                    {weights.length > 0
+                      ? `Based on latest weight · ${(weights[weights.length - 1].grams / 1000).toFixed(2)}kg`
+                      : babyDOB
+                      ? `Based on date of birth · ${effectiveAge}w old`
+                      : `Based on age · ${effectiveAge}w`}
+                  </span>
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
                   <input
